@@ -4,7 +4,7 @@ from ..config import Config
 
 class SyncService:
     def __init__(self):
-        self.mongo_client = MongoClient(Config.MONGO_URI)
+        self.mongo_client = MongoClient(Config.MONGODB_URI)
         self.neo4j_driver = GraphDatabase.driver(
             Config.NEO4J_URI,
             auth=(Config.NEO4J_USER, Config.NEO4J_PASSWORD)
@@ -20,9 +20,13 @@ class SyncService:
             upsert=True
         )
         
+        # Prepare data for Neo4j
+        neo4j_data = patient_data.copy()
+        neo4j_data['id'] = str(patient_data['_id'])  # Convert MongoDB _id to Neo4j id
+        
         # Neo4j operation
         with self.neo4j_driver.session() as session:
-            session.write_transaction(self._create_or_update_patient_node, patient_data)
+            session.write_transaction(self._create_or_update_patient_node, neo4j_data)
     
     def sync_doctor(self, doctor_data):
         """Synchronize doctor data between MongoDB and Neo4j"""
@@ -34,9 +38,13 @@ class SyncService:
             upsert=True
         )
         
+        # Prepare data for Neo4j
+        neo4j_data = doctor_data.copy()
+        neo4j_data['id'] = str(doctor_data['_id'])  # Convert MongoDB _id to Neo4j id
+        
         # Neo4j operation
         with self.neo4j_driver.session() as session:
-            session.write_transaction(self._create_or_update_doctor_node, doctor_data)
+            session.write_transaction(self._create_or_update_doctor_node, neo4j_data)
     
     def sync_consultation(self, consultation_data):
         """Synchronize consultation data and create relationships in Neo4j"""
@@ -48,11 +56,19 @@ class SyncService:
             upsert=True
         )
         
+        # Prepare data for Neo4j
+        neo4j_data = consultation_data.copy()
+        neo4j_data['id'] = str(consultation_data['_id'])  # Convert MongoDB _id to Neo4j id
+        if 'patient_id' in consultation_data:
+            neo4j_data['patient_id'] = str(consultation_data['patient_id'])
+        if 'doctor_id' in consultation_data:
+            neo4j_data['doctor_id'] = str(consultation_data['doctor_id'])
+        
         # Neo4j operation
         with self.neo4j_driver.session() as session:
             session.write_transaction(
                 self._create_consultation_relationship,
-                consultation_data
+                neo4j_data
             )
     
     @staticmethod

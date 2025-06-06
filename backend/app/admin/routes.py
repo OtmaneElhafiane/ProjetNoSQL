@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from pymongo import MongoClient
 from bson import ObjectId
 from ..config import Config
@@ -8,7 +8,7 @@ from ..models.user import User
 from functools import wraps
 
 admin_bp = Blueprint('admin', __name__)
-mongo_client = MongoClient(Config.MONGO_URI)
+mongo_client = MongoClient(Config.MONGODB_URI)
 db = mongo_client.cabinet_medical
 sync_service = SyncService()
 
@@ -23,6 +23,7 @@ def admin_required(fn):
 
 # Routes pour la gestion des patients
 @admin_bp.route('/patients', methods=['GET'])
+@jwt_required()
 @admin_required
 def get_patients():
     patients = list(db.patients.find())
@@ -31,6 +32,7 @@ def get_patients():
     return jsonify(patients), 200
 
 @admin_bp.route('/patients', methods=['POST'])
+@jwt_required()
 @admin_required
 def create_patient():
     data = request.get_json()
@@ -51,6 +53,7 @@ def create_patient():
     return jsonify(patient_data), 201
 
 @admin_bp.route('/patients/<patient_id>', methods=['PUT'])
+@jwt_required()
 @admin_required
 def update_patient(patient_id):
     data = request.get_json()
@@ -74,6 +77,7 @@ def update_patient(patient_id):
 
 # Routes pour la gestion des médecins
 @admin_bp.route('/doctors', methods=['GET'])
+@jwt_required()
 @admin_required
 def get_doctors():
     doctors = list(db.doctors.find())
@@ -82,6 +86,7 @@ def get_doctors():
     return jsonify(doctors), 200
 
 @admin_bp.route('/doctors', methods=['POST'])
+@jwt_required()
 @admin_required
 def create_doctor():
     data = request.get_json()
@@ -102,6 +107,7 @@ def create_doctor():
     return jsonify(doctor_data), 201
 
 @admin_bp.route('/doctors/<doctor_id>', methods=['PUT'])
+@jwt_required()
 @admin_required
 def update_doctor(doctor_id):
     data = request.get_json()
@@ -125,6 +131,7 @@ def update_doctor(doctor_id):
 
 # Route pour les statistiques
 @admin_bp.route('/stats', methods=['GET'])
+@jwt_required()
 @admin_required
 def get_stats():
     stats = {
