@@ -4,21 +4,22 @@ from pymongo import MongoClient
 from bson import ObjectId
 from ..config import Config
 from ..data.sync_service import SyncService
+from ..models.user import User
+from functools import wraps
 
 admin_bp = Blueprint('admin', __name__)
 mongo_client = MongoClient(Config.MONGO_URI)
 db = mongo_client.cabinet_medical
 sync_service = SyncService()
 
-def admin_required(f):
-    @jwt_required()
-    def decorated_function(*args, **kwargs):
-        current_user_id = get_jwt_identity()
-        user = db.users.find_one({'_id': ObjectId(current_user_id)})
-        if not user or user['role'] != 'admin':
-            return jsonify({'error': 'Admin access required'}), 403
-        return f(*args, **kwargs)
-    return decorated_function
+def admin_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        claims = get_jwt()
+        if claims.get('role') != 'admin':
+            return jsonify({'error': 'Accès réservé aux administrateurs'}), 403
+        return fn(*args, **kwargs)
+    return wrapper
 
 # Routes pour la gestion des patients
 @admin_bp.route('/patients', methods=['GET'])
@@ -131,4 +132,128 @@ def get_stats():
         'total_doctors': db.doctors.count_documents({}),
         'total_consultations': db.consultations.count_documents({})
     }
-    return jsonify(stats), 200 
+    return jsonify(stats), 200
+
+@admin_bp.route('/users', methods=['POST'])
+@jwt_required()
+@admin_required
+def create_user():
+    """Création d'un utilisateur (patient ou médecin) par l'administrateur"""
+    data = request.get_json()
+    
+    try:
+        # Vérifier les champs requis
+        required_fields = ['email', 'password', 'role', 'first_name', 'last_name']
+        if not all(field in data for field in required_fields):
+            return jsonify({'error': 'Tous les champs sont requis'}), 400
+        
+        # Créer l'utilisateur
+        user = User.create_user(
+            email=data['email'],
+            password=data['password'],
+            role=data['role'],
+            first_name=data['first_name'],
+            last_name=data['last_name'],
+            **{k: v for k, v in data.items() if k not in required_fields}  # Champs additionnels
+        )
+        
+        return jsonify({
+            'message': f'{user.role.capitalize()} créé avec succès',
+            'user': user.to_json()
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': 'Une erreur est survenue lors de la création de l\'utilisateur'}), 500
+
+@admin_bp.route('/users', methods=['GET'])
+@jwt_required()
+@admin_required
+def get_users():
+    """Récupérer la liste des utilisateurs"""
+    try:
+        role = request.args.get('role')  # Filtre optionnel par rôle
+        
+        # Construire la requête MongoDB
+        query = {}
+        if role:
+            query['role'] = role
+        
+        # Récupérer les utilisateurs
+        users = list(User.get_db()[User.collection_name].find(query))
+        users = [User(**user_data).to_json() for user_data in users]
+        
+        return jsonify(users), 200
+        
+    except Exception as e:
+        return jsonify({'error': 'Une erreur est survenue lors de la récupération des utilisateurs'}), 500
+
+@admin_bp.route('/users/<user_id>', methods=['GET'])
+@jwt_required()
+@admin_required
+def get_user(user_id):
+    """Récupérer un utilisateur par son ID"""
+    try:
+        user = User.get_by_id(user_id)
+        if not user:
+            return jsonify({'error': 'Utilisateur non trouvé'}), 404
+            
+        return jsonify(user.to_json()), 200
+        
+    except Exception as e:
+        return jsonify({'error': 'Une erreur est survenue lors de la récupération de l\'utilisateur'}), 500
+
+@admin_bp.route('/users/<user_id>', methods=['PUT'])
+@jwt_required()
+@admin_required
+def update_user(user_id):
+    """Mettre à jour un utilisateur"""
+    try:
+        user = User.get_by_id(user_id)
+        if not user:
+            return jsonify({'error': 'Utilisateur non trouvé'}), 404
+        
+        data = request.get_json()
+        
+        # Ne pas permettre la modification du rôle
+        if 'role' in data:
+            del data['role']
+        
+        # Mettre à jour le mot de passe si fourni
+        if 'password' in data:
+            user.password_hash = generate_password_hash(data['password'])
+            del data['password']
+        
+        # Mettre à jour les autres champs
+        for key, value in data.items():
+            setattr(user, key, value)
+        
+        user.save()
+        return jsonify({
+            'message': 'Utilisateur mis à jour avec succès',
+            'user': user.to_json()
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': 'Une erreur est survenue lors de la mise à jour de l\'utilisateur'}), 500
+
+@admin_bp.route('/users/<user_id>', methods=['DELETE'])
+@jwt_required()
+@admin_required
+def delete_user(user_id):
+    """Supprimer un utilisateur"""
+    try:
+        user = User.get_by_id(user_id)
+        if not user:
+            return jsonify({'error': 'Utilisateur non trouvé'}), 404
+        
+        # Empêcher la suppression d'un admin
+        if user.role == 'admin':
+            return jsonify({'error': 'Impossible de supprimer un administrateur'}), 403
+        
+        User.get_db()[User.collection_name].delete_one({'_id': user._id})
+        return jsonify({'message': 'Utilisateur supprimé avec succès'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': 'Une erreur est survenue lors de la suppression de l\'utilisateur'}), 500 

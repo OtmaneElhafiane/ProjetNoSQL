@@ -1,62 +1,131 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask_jwt_extended import (
+    create_access_token,
+    create_refresh_token,
+    jwt_required,
+    get_jwt_identity,
+    get_jwt
+)
+from datetime import timedelta
 from ..models.user import User
-from pymongo import MongoClient
-from ..config import Config
+from ..extensions import jwt
 
 auth_bp = Blueprint('auth', __name__)
-mongo_client = MongoClient(Config.MONGO_URI)
-db = mongo_client.cabinet_medical
 
-@auth_bp.route('/register', methods=['POST'])
-def register():
+@auth_bp.route('/register/admin', methods=['POST'])
+def register_admin():
+    """Route pour l'enregistrement d'un administrateur"""
     data = request.get_json()
     
-    if db.users.find_one({'email': data['email']}):
-        return jsonify({'error': 'Email already exists'}), 400
-    
-    user = User(
-        username=data['username'],
-        email=data['email'],
-        password_hash=generate_password_hash(data['password']),
-        role=data['role']
-    )
-    
-    db.users.insert_one(user.to_dict())
-    
-    return jsonify({'message': 'User created successfully'}), 201
+    try:
+        # Vérifier si les champs requis sont présents
+        required_fields = ['email', 'password', 'first_name', 'last_name']
+        if not all(field in data for field in required_fields):
+            return jsonify({'error': 'Tous les champs sont requis'}), 400
+        
+        # Créer l'administrateur
+        user = User.create_admin(
+            email=data['email'],
+            password=data['password'],
+            first_name=data['first_name'],
+            last_name=data['last_name']
+        )
+        
+        return jsonify({
+            'message': 'Administrateur créé avec succès',
+            'user': user.to_json()
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': 'Une erreur est survenue lors de la création du compte'}), 500
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
+    """Route pour la connexion des utilisateurs"""
     data = request.get_json()
-    user_data = db.users.find_one({'email': data['email']})
     
-    if not user_data or not check_password_hash(user_data['password_hash'], data['password']):
-        return jsonify({'error': 'Invalid credentials'}), 401
+    if not data or not data.get('email') or not data.get('password'):
+        return jsonify({'error': 'Email et mot de passe requis'}), 400
     
-    access_token = create_access_token(identity=str(user_data['_id']))
-    
-    return jsonify({
-        'access_token': access_token,
-        'user': {
-            'username': user_data['username'],
-            'email': user_data['email'],
-            'role': user_data['role']
-        }
-    }), 200
+    try:
+        user = User.get_by_email(data['email'])
+        if not user or not user.check_password(data['password']):
+            return jsonify({'error': 'Email ou mot de passe incorrect'}), 401
+        
+        # Mettre à jour la date de dernière connexion
+        user.update_last_login()
+        
+        # Créer les tokens
+        access_token = create_access_token(
+            identity=user._id,
+            additional_claims={'role': user.role}
+        )
+        refresh_token = create_refresh_token(
+            identity=user._id,
+            additional_claims={'role': user.role}
+        )
+        
+        return jsonify({
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'user': user.to_json()
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': 'Une erreur est survenue lors de la connexion'}), 500
+
+@auth_bp.route('/refresh', methods=['POST'])
+@jwt_required(refresh=True)
+def refresh():
+    """Route pour rafraîchir le token d'accès"""
+    try:
+        current_user_id = get_jwt_identity()
+        claims = get_jwt()
+        
+        access_token = create_access_token(
+            identity=current_user_id,
+            additional_claims={'role': claims.get('role')}
+        )
+        
+        return jsonify({'access_token': access_token}), 200
+    except Exception as e:
+        return jsonify({'error': 'Une erreur est survenue lors du rafraîchissement du token'}), 500
 
 @auth_bp.route('/profile', methods=['GET'])
 @jwt_required()
-def profile():
-    current_user_id = get_jwt_identity()
-    user_data = db.users.find_one({'_id': current_user_id})
-    
-    if not user_data:
-        return jsonify({'error': 'User not found'}), 404
-    
+def get_profile():
+    """Route pour obtenir le profil de l'utilisateur connecté"""
+    try:
+        current_user_id = get_jwt_identity()
+        user = User.get_by_id(current_user_id)
+        
+        if not user:
+            return jsonify({'error': 'Utilisateur non trouvé'}), 404
+            
+        return jsonify(user.to_json()), 200
+    except Exception as e:
+        return jsonify({'error': 'Une erreur est survenue lors de la récupération du profil'}), 500
+
+# Gestionnaire d'erreurs JWT
+@jwt.expired_token_loader
+def expired_token_callback(jwt_header, jwt_payload):
     return jsonify({
-        'username': user_data['username'],
-        'email': user_data['email'],
-        'role': user_data['role']
-    }), 200 
+        'error': 'Le token a expiré',
+        'code': 'token_expired'
+    }), 401
+
+@jwt.invalid_token_loader
+def invalid_token_callback(error):
+    return jsonify({
+        'error': 'Token invalide',
+        'code': 'invalid_token'
+    }), 401
+
+@jwt.unauthorized_loader
+def missing_token_callback(error):
+    return jsonify({
+        'error': 'Token manquant',
+        'code': 'missing_token'
+    }), 401 
