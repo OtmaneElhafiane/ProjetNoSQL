@@ -1,0 +1,24 @@
+<div class="role-selection-container">
+  <h1>Bienvenue sur le système de gestion du cabinet médical</h1>
+  <h2>Veuillez sélectionner votre rôle</h2>
+  
+  <div class="role-cards">
+    <div class="role-card" (click)="selectRole('patient')">
+      <i class="fas fa-user"></i>
+      <h3>Patient</h3>
+      <p>Accédez à vos consultations et gérez votre profil</p>
+    </div>
+
+    <div class="role-card" (click)="selectRole('doctor')">
+      <i class="fas fa-user-md"></i>
+      <h3>Docteur</h3>
+      <p>Gérez vos consultations et vos patients</p>
+    </div>
+
+    <div class="role-card" (click)="selectRole('admin')">
+      <i class="fas fa-user-shield"></i>
+      <h3>Administrateur</h3>
+      <p>Gérez l'ensemble du cabinet médical</p>
+    </div>
+  </div>
+</div> 

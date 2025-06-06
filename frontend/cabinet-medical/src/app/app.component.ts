@@ -1,8 +1,16 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { AuthService, User } from './auth/auth.service';
-import { Observable, map } from 'rxjs';
+import { AuthService } from './auth/auth.service';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+
+interface User {
+  _id: string;
+  email: string;
+  role: string;
+}
 
 @Component({
   selector: 'app-root',
@@ -11,18 +19,23 @@ import { Observable, map } from 'rxjs';
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   isLoggedIn$: Observable<boolean>;
-  currentUser$: Observable<User | null>;
+  user$: Observable<User | null>;
 
-  constructor(private authService: AuthService) {
-    this.isLoggedIn$ = this.authService.currentUser$.pipe(map(user => !!user));
-    this.currentUser$ = this.authService.currentUser$;
+  constructor(
+    private authService: AuthService,
+    private router: Router
+  ) {
+    this.isLoggedIn$ = this.authService.user$.pipe(map(user => !!user));
+    this.user$ = this.authService.user$;
   }
 
-  hasRole$(role: string): Observable<boolean> {
-    return this.authService.currentUser$.pipe(
-      map(user => user?.role === role)
+  ngOnInit(): void {}
+
+  hasRole(role: string): Observable<boolean> {
+    return this.authService.user$.pipe(
+      map(user => (user as User)?.role === role)
     );
   }
 

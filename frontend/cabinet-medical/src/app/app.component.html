@@ -7,7 +7,7 @@
     </button>
     <div class="collapse navbar-collapse" id="navbarNav">
       <!-- Menu Admin -->
-      <ul class="navbar-nav" *ngIf="hasRole$('admin') | async">
+      <ul class="navbar-nav" *ngIf="hasRole('admin') | async">
         <li class="nav-item">
           <a class="nav-link" routerLink="/admin/patients" routerLinkActive="active">Patients</a>
         </li>
@@ -20,7 +20,7 @@
       </ul>
 
       <!-- Menu Médecin -->
-      <ul class="navbar-nav" *ngIf="hasRole$('doctor') | async">
+      <ul class="navbar-nav" *ngIf="hasRole('doctor') | async">
         <li class="nav-item">
           <a class="nav-link" routerLink="/doctor-dashboard" routerLinkActive="active">Tableau de bord</a>
         </li>
@@ -33,7 +33,7 @@
       </ul>
 
       <!-- Menu Patient -->
-      <ul class="navbar-nav" *ngIf="hasRole$('patient') | async">
+      <ul class="navbar-nav" *ngIf="hasRole('patient') | async">
         <li class="nav-item">
           <a class="nav-link" routerLink="/patient-dashboard" routerLinkActive="active">Tableau de bord</a>
         </li>
@@ -49,7 +49,7 @@
       <ul class="navbar-nav ms-auto">
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-            {{ (currentUser$ | async)?.firstName }} {{ (currentUser$ | async)?.lastName }}
+            {{ (user$ | async)?.email }}
           </a>
           <ul class="dropdown-menu dropdown-menu-end">
             <li><a class="dropdown-item" href="#" (click)="logout()">Déconnexion</a></li>

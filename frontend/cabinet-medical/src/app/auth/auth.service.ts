@@ -1,6 +1,7 @@
 import { Injectable, PLATFORM_ID, Inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable } from 'rxjs';
+import { tap } from 'rxjs/operators';
 import { Router } from '@angular/router';
 import { isPlatformBrowser } from '@angular/common';
 
@@ -21,9 +22,9 @@ export interface AuthResponse {
   providedIn: 'root'
 })
 export class AuthService {
-  private apiUrl = 'http://localhost:3000/api/auth';
-  private currentUserSubject = new BehaviorSubject<User | null>(null);
-  public currentUser$ = this.currentUserSubject.asObservable();
+  private apiUrl = 'http://localhost:5000/api';
+  private userSubject = new BehaviorSubject<any>(null);
+  public user$ = this.userSubject.asObservable();
 
   constructor(
     private http: HttpClient,
@@ -31,55 +32,52 @@ export class AuthService {
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
     if (isPlatformBrowser(this.platformId)) {
-      // Charger l'utilisateur depuis le localStorage au démarrage
-      const storedUser = localStorage.getItem('currentUser');
-      if (storedUser) {
-        this.currentUserSubject.next(JSON.parse(storedUser));
+      const user = localStorage.getItem('user');
+      if (user) {
+        this.userSubject.next(JSON.parse(user));
       }
     }
   }
 
-  login(email: string, password: string): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.apiUrl}/login`, { email, password })
-      .pipe(
-        tap(response => {
-          if (isPlatformBrowser(this.platformId)) {
-            localStorage.setItem('token', response.token);
-            localStorage.setItem('currentUser', JSON.stringify(response.user));
-          }
-          this.currentUserSubject.next(response.user);
-        })
-      );
+  getSelectedRole(): string {
+    if (isPlatformBrowser(this.platformId)) {
+      return sessionStorage.getItem('selectedRole') || '';
+    }
+    return '';
   }
 
-  register(userData: any): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.apiUrl}/register`, userData)
-      .pipe(
-        tap(response => {
-          if (isPlatformBrowser(this.platformId)) {
-            localStorage.setItem('token', response.token);
-            localStorage.setItem('currentUser', JSON.stringify(response.user));
-          }
-          this.currentUserSubject.next(response.user);
-        })
-      );
+  login(credentials: { email: string; password: string }): Observable<any> {
+    const role = this.getSelectedRole();
+    return this.http.post(`${this.apiUrl}/auth/${role}/login`, credentials).pipe(
+      tap(user => {
+        if (isPlatformBrowser(this.platformId)) {
+          localStorage.setItem('user', JSON.stringify(user));
+        }
+        this.userSubject.next(user);
+      })
+    );
+  }
+
+  register(userData: any): Observable<any> {
+    const role = this.getSelectedRole();
+    return this.http.post(`${this.apiUrl}/auth/${role}/register`, userData);
   }
 
   logout(): void {
     if (isPlatformBrowser(this.platformId)) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('currentUser');
+      localStorage.removeItem('user');
+      sessionStorage.removeItem('selectedRole');
     }
-    this.currentUserSubject.next(null);
-    this.router.navigate(['/auth/login']);
+    this.userSubject.next(null);
+    this.router.navigate(['/auth/select-role']);
   }
 
-  isLoggedIn(): boolean {
-    return !!this.currentUserSubject.value;
+  isAuthenticated(): boolean {
+    return this.userSubject.value !== null;
   }
 
-  getCurrentUser(): User | null {
-    return this.currentUserSubject.value;
+  getCurrentUser(): any {
+    return this.userSubject.value;
   }
 
   hasRole(role: string): boolean {
@@ -88,9 +86,6 @@ export class AuthService {
   }
 
   getToken(): string | null {
-    if (isPlatformBrowser(this.platformId)) {
-      return localStorage.getItem('token');
-    }
-    return null;
+    return localStorage.getItem('token');
   }
 } 
