@@ -2,7 +2,7 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from pymongo import MongoClient
 from neo4j import GraphDatabase
-from flask import current_app
+from flask import g
 import logging
 from pymongo.errors import ConnectionFailure
 from neo4j.exceptions import ServiceUnavailable
@@ -15,8 +15,16 @@ logger = logging.getLogger(__name__)
 # Initialize extensions
 cors = CORS()
 jwt = JWTManager()
-mongo = None
+mongo_client = None
 neo4j_driver = None
+
+
+def get_db():
+    """Get MongoDB database instance"""
+    if "db" not in g:
+        g.db = mongo_client["cabinet_medical"]
+    return g.db
+
 
 def init_mongodb(app):
     """Initialize MongoDB connection - Simple approach like your old project"""
@@ -41,6 +49,7 @@ def init_mongodb(app):
     except Exception as e:
         logger.error(f"❌ Unexpected error connecting to MongoDB: {e}")
         return False
+
 
 def init_neo4j(app):
     """Initialize Neo4j connection with retry logic"""
@@ -72,6 +81,7 @@ def init_neo4j(app):
         logger.error(f"❌ Unexpected error connecting to Neo4j: {e}")
         return False
 
+
 def setup_neo4j_constraints():
     """Setup Neo4j constraints with error handling"""
     try:
@@ -85,9 +95,9 @@ def setup_neo4j_constraints():
                 # Indexes for better performance
                 "CREATE INDEX IF NOT EXISTS FOR (d:Doctor) ON (d.email)",
                 "CREATE INDEX IF NOT EXISTS FOR (p:Patient) ON (p.email)",
-                "CREATE INDEX IF NOT EXISTS FOR (a:Appointment) ON (a.date)"
+                "CREATE INDEX IF NOT EXISTS FOR (a:Appointment) ON (a.date)",
             ]
-            
+
             for constraint in constraints:
                 try:
                     session.run(constraint)
@@ -99,6 +109,7 @@ def setup_neo4j_constraints():
     except Exception as e:
         logger.error(f"❌ Failed to set up Neo4j constraints: {e}")
         return False
+
 
 def init_extensions(app):
     """Initialize Flask extensions with proper error handling"""
@@ -117,7 +128,7 @@ def init_extensions(app):
     logger.info("🔄 Initializing MongoDB connection...")
     if not init_mongodb(app):
         raise RuntimeError("Failed to initialize MongoDB connection")
-    
+
     # Initialize Neo4j
     logger.info("🔄 Initializing Neo4j connection...")
     if not init_neo4j(app):

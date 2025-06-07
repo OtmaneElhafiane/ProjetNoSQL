@@ -3,6 +3,7 @@ from datetime import timedelta
 from .extensions import init_extensions, close_extensions
 import os
 from dotenv import load_dotenv
+from .config import Config
 
 def create_app():
     """Application factory function - Simplified like your old project"""
@@ -97,8 +98,6 @@ def create_app():
         }
     
     # Register teardown function
-    @app.teardown_appcontext
-    def teardown_db(exception=None):
-        close_extensions()
+    app.teardown_appcontext(close_extensions)
     
     return app
