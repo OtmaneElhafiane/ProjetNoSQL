@@ -1,11 +1,12 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import get_jwt, jwt_required, get_jwt_identity
 from pymongo import MongoClient
 from bson import ObjectId
 from ..config import Config
 from ..data.sync_service import SyncService
 from ..models.user import User
 from functools import wraps
+from werkzeug.security import generate_password_hash
 
 admin_bp = Blueprint('admin', __name__)
 mongo_client = MongoClient(Config.MONGO_URI)

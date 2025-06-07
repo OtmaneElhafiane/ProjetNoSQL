@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from bson import ObjectId
 from datetime import datetime
-from ..auth.auth import token_required, admin_required, doctor_required
+from ..auth.routes import token_required, admin_required, doctor_required
 from ..extensions import mongo, neo4j_driver
 
 consultation_bp = Blueprint('consultation', __name__)
