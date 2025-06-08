@@ -13,7 +13,7 @@ def create_app():
 
     # Create Flask app
     app = Flask(__name__)
-<<<<<<< HEAD
+
     
     # Use centralized configuration from Config class
     app.config['JWT_SECRET_KEY'] = Config.JWT_SECRET_KEY
@@ -38,32 +38,7 @@ def create_app():
     app.config['RATELIMIT_DEFAULT'] = Config.RATELIMIT_DEFAULT
     app.config['RATELIMIT_STORAGE_URL'] = Config.RATELIMIT_STORAGE_URL
     
-=======
 
-    # Use centralized configuration from Config class
-    app.config["JWT_SECRET_KEY"] = Config.JWT_SECRET_KEY
-    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = Config.JWT_ACCESS_TOKEN_EXPIRES
-    app.config["JWT_REFRESH_TOKEN_EXPIRES"] = Config.JWT_REFRESH_TOKEN_EXPIRES
-    app.config["MONGODB_URI"] = Config.MONGODB_URI
-
-    # Neo4j Configuration - Use Config class values
-    app.config["NEO4J_URI"] = Config.NEO4J_URI
-    app.config["NEO4J_USER"] = Config.NEO4J_USER
-    app.config["NEO4J_PASSWORD"] = Config.NEO4J_PASSWORD
-    app.config["NEO4J_OPTIONS"] = Config.NEO4J_OPTIONS
-
-    # Security Configuration
-    app.config["SECRET_KEY"] = Config.SECRET_KEY
-    app.config["BCRYPT_LOG_ROUNDS"] = Config.BCRYPT_LOG_ROUNDS
-
-    # Debug configuration
-    app.config["DEBUG"] = Config.DEBUG
-
-    # Rate Limiting
-    app.config["RATELIMIT_DEFAULT"] = Config.RATELIMIT_DEFAULT
-    app.config["RATELIMIT_STORAGE_URL"] = Config.RATELIMIT_STORAGE_URL
-
->>>>>>> f11b8ae413bff5543672411d59918924404b7444
     # Debug: Print Neo4j configuration (remove password for security)
     print(f"🔍 Neo4j URI: {app.config['NEO4J_URI']}")
     print(f"🔍 Neo4j User: {app.config['NEO4J_USER']}")
@@ -120,11 +95,7 @@ def create_app():
         print("✅ Admin blueprint registered")
     except ImportError as e:
         print(f"⚠️ admin blueprint not found - skipping: {e}")
-<<<<<<< HEAD
-    
-=======
 
->>>>>>> f11b8ae413bff5543672411d59918924404b7444
     # Basic routes for testing
     @app.route("/")
     def index():
