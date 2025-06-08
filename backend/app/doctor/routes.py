@@ -506,11 +506,11 @@ def update_consultation_status(consultation_id):
     except Exception as e:
         return jsonify({'error': f'Erreur lors de la mise à jour du statut: {str(e)}'}), 500
 
-@doctor_bp.route('/consultations/upcoming', methods=['GET'])
+doctor_bp.route('/consultations/upcoming', methods=['GET'])
 @jwt_required()
 @doctor_required
 def get_upcoming_consultations():
-    """Récupérer les consultations à venir (date >= aujourd'hui et non annulées)"""
+    """Récupérer les consultations à venir avec statut 'pending' uniquement"""
     try:
         current_user_id = get_jwt_identity()
         doctor = db.doctors.find_one({'user_id': current_user_id})
@@ -522,13 +522,13 @@ def get_upcoming_consultations():
         doctor_neo4j_id = str(doctor['_id'])
         today = datetime.now().date().isoformat()
         
-        # Requête Neo4j pour les consultations à venir non annulées
+        # Requête Neo4j pour les consultations à venir avec statut 'pending' uniquement
         with neo4j_driver.session() as session:
             result = session.run("""
                 MATCH (p:Patient)-[r:CONSULTED_BY]->(d:Doctor)
                 WHERE d.id = $doctor_id
                 AND datetime(r.date) >= datetime($today)
-                AND (r.status IS NULL OR r.status <> 'cancelled')
+                AND NOT r.status IN ['cancelled', 'completed']
                 RETURN p.id as patient_mongo_id, 
                        r.consultation_id as consultation_id,
                        r.date as date,
@@ -557,7 +557,7 @@ def get_upcoming_consultations():
                         'diagnostic': record['diagnostic'],
                         'traitement': record['traitement'],
                         'notes': record['notes'] or '',
-                        'status': record['status'] or 'pending',
+                        'status': record['status'],
                         'created_at': record['created_at'],
                         'patient': {
                             'id': str(patient['_id']),
@@ -577,7 +577,6 @@ def get_upcoming_consultations():
             
     except Exception as e:
         return jsonify({'error': f'Erreur lors de la récupération des consultations à venir: {str(e)}'}), 500
-
 @doctor_bp.route('/consultations/<consultation_id>', methods=['PUT'])
 @jwt_required()
 @doctor_required
