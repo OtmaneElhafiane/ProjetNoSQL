@@ -1,3 +1,4 @@
+from functools import wraps
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from pymongo import MongoClient
@@ -7,25 +8,29 @@ from ..config import Config
 from ..data.sync_service import SyncService
 
 doctor_bp = Blueprint('doctor', __name__)
-mongo_client = MongoClient(Config.MONGO_URI)
+mongo_client = MongoClient(Config.MONGODB_URI)
 db = mongo_client.cabinet_medical
 sync_service = SyncService()
 
 def doctor_required(f):
-    @jwt_required()
+    @wraps(f)
     def decorated_function(*args, **kwargs):
         current_user_id = get_jwt_identity()
-        user = db.users.find_one({'_id': ObjectId(current_user_id)})
+        user = db.users.find_one({'_id': current_user_id})
         if not user or user['role'] != 'doctor':
             return jsonify({'error': 'Doctor access required'}), 403
         return f(*args, **kwargs)
     return decorated_function
 
 @doctor_bp.route('/consultations', methods=['GET'])
+@jwt_required()
 @doctor_required
 def get_consultations():
     current_user_id = get_jwt_identity()
-    doctor = db.doctors.find_one({'user_id': ObjectId(current_user_id)})
+    doctor = db.doctors.find_one({'user_id': current_user_id}) 
+    
+    if not doctor:
+        return jsonify({'error': 'Docteur non trouvé'}), 404
     
     consultations = list(db.consultations.find({'doctor_id': str(doctor['_id'])}))
     for consultation in consultations:
@@ -41,11 +46,15 @@ def get_consultations():
     return jsonify(consultations), 200
 
 @doctor_bp.route('/consultations', methods=['POST'])
+@jwt_required()
 @doctor_required
 def create_consultation():
     data = request.get_json()
     current_user_id = get_jwt_identity()
-    doctor = db.doctors.find_one({'user_id': ObjectId(current_user_id)})
+    doctor = db.doctors.find_one({'user_id': current_user_id})
+    
+    if not doctor:
+        return jsonify({'error': 'Docteur non trouvé'}), 404
     
     consultation_data = {
         'patient_id': data['patient_id'],
@@ -67,11 +76,15 @@ def create_consultation():
     return jsonify(consultation_data), 201
 
 @doctor_bp.route('/consultations/<consultation_id>', methods=['PUT'])
+@jwt_required()
 @doctor_required
 def update_consultation(consultation_id):
     data = request.get_json()
     current_user_id = get_jwt_identity()
-    doctor = db.doctors.find_one({'user_id': ObjectId(current_user_id)})
+    doctor = db.doctors.find_one({'user_id': current_user_id})
+    
+    if not doctor:
+        return jsonify({'error': 'Docteur non trouvé'}), 404
     
     consultation_data = {
         'symptoms': data['symptoms'],
@@ -96,10 +109,14 @@ def update_consultation(consultation_id):
     return jsonify(consultation_data), 200
 
 @doctor_bp.route('/patients/<patient_id>/history', methods=['GET'])
+@jwt_required()
 @doctor_required
 def get_patient_history(patient_id):
     current_user_id = get_jwt_identity()
-    doctor = db.doctors.find_one({'user_id': ObjectId(current_user_id)})
+    doctor = db.doctors.find_one({'user_id': current_user_id})
+    
+    if not doctor:
+        return jsonify({'error': 'Docteur non trouvé'}), 404
     
     consultations = list(db.consultations.find({
         'doctor_id': str(doctor['_id']),
@@ -112,10 +129,14 @@ def get_patient_history(patient_id):
     return jsonify(consultations), 200
 
 @doctor_bp.route('/schedule', methods=['GET'])
+@jwt_required()
 @doctor_required
 def get_schedule():
     current_user_id = get_jwt_identity()
-    doctor = db.doctors.find_one({'user_id': ObjectId(current_user_id)})
+    doctor = db.doctors.find_one({'user_id': current_user_id})
+    
+    if not doctor:
+        return jsonify({'error': 'Docteur non trouvé'}), 404
     
     today = datetime.now().date()
     upcoming_consultations = list(db.consultations.find({
@@ -132,4 +153,4 @@ def get_schedule():
                 'email': patient['email']
             }
     
-    return jsonify(upcoming_consultations), 200 
+    return jsonify(upcoming_consultations), 200

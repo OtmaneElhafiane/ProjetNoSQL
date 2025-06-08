@@ -10,7 +10,9 @@ from ..models.user import User
 from functools import wraps
 from werkzeug.security import generate_password_hash
 
+
 admin_bp = Blueprint("admin", __name__)
+
 mongo_client = MongoClient(Config.MONGODB_URI)
 db = mongo_client.cabinet_medical
 sync_service = SyncService()
@@ -163,6 +165,7 @@ def create_user():
 
         # Créer l'utilisateur
         user = User.create_user(
+
             email=data["email"],
             password=data["password"],
             role=data["role"],
@@ -171,21 +174,60 @@ def create_user():
             **{
                 k: v for k, v in data.items() if k not in required_fields
             },  # Champs additionnels
+    
+            email=data['email'],
+            password=data['password'],
+            role=data['role'],
+            first_name=data['first_name'],
+            last_name=data['last_name'],
+            **{k: v for k, v in data.items() if k not in required_fields}
         )
-
-        return jsonify(
-            {
-                "message": f"{user.role.capitalize()} créé avec succès",
-                "user": user.to_json(),
+        
+        # ✅ AJOUTER CETTE PARTIE
+        if data['role'] == 'doctor':
+            # Créer aussi un document dans la collection doctors
+            doctor_data = {
+                'user_id': str(user._id),  # Référence vers l'utilisateur
+                'name': f"{data['first_name']} {data['last_name']}",
+                'email': data['email'],
+                'phone': data.get('phone', ''),
+                'speciality': data.get('speciality', ''),
+                'schedule': data.get('schedule', {})
             }
-        ), 201
-
+            
+            result = db.doctors.insert_one(doctor_data)
+            doctor_data['_id'] = str(result.inserted_id)
+            
+            # Synchroniser avec Neo4j
+            sync_service.sync_doctor(doctor_data)
+        
+        elif data['role'] == 'patient':
+            # Créer aussi un document dans la collection patients
+            patient_data = {
+                'user_id': str(user._id),
+                'name': f"{data['first_name']} {data['last_name']}",
+                'email': data['email'],
+                'phone': data.get('phone', ''),
+                'birth_date': data.get('birth_date', ''),
+                'address': data.get('address', '')
+            }
+            
+            result = db.patients.insert_one(patient_data)
+            patient_data['_id'] = str(result.inserted_id)
+            
+            # Synchroniser avec Neo4j
+            sync_service.sync_patient(patient_data)
+        
+        return jsonify({
+            'message': f'{user.role.capitalize()} créé avec succès',
+            'user': user.to_json()
+        }), 201
+        
     except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception:
-        return jsonify(
-            {"error": "Une erreur est survenue lors de la création de l'utilisateur"}
-        ), 500
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': 'Une erreur est survenue lors de la création de l\'utilisateur'}), 500
+
 
 
 @admin_bp.route("/users", methods=["GET"])
@@ -282,6 +324,7 @@ def delete_user(user_id):
             return jsonify({"error": "Utilisateur non trouvé"}), 404
 
         # Empêcher la suppression d'un admin
+
         if user.role == "admin":
             return jsonify({"error": "Impossible de supprimer un administrateur"}), 403
 
@@ -292,3 +335,4 @@ def delete_user(user_id):
         return jsonify(
             {"error": "Une erreur est survenue lors de la suppression de l'utilisateur"}
         ), 500
+
