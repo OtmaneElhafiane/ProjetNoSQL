@@ -13,12 +13,6 @@ class SyncService:
     def sync_patient(self, patient_data):
         """Synchronize patient data between MongoDB and Neo4j"""
 
-        # MongoDB operation
-        db = self.mongo_client.cabinet_medical
-        db.patients.update_one(
-            {"_id": patient_data["_id"]}, {"$set": patient_data}, upsert=True
-        )
-
         # Prepare data for Neo4j
         neo4j_data = patient_data.copy()
         neo4j_data["id"] = str(patient_data["_id"])  # Convert MongoDB _id to Neo4j id
@@ -30,12 +24,6 @@ class SyncService:
 
     def sync_doctor(self, doctor_data):
         """Synchronize doctor data between MongoDB and Neo4j"""
-
-        # MongoDB operation
-        db = self.mongo_client.cabinet_medical
-        db.doctors.update_one(
-            {"_id": doctor_data["_id"]}, {"$set": doctor_data}, upsert=True
-        )
 
         # Prepare data for Neo4j
         neo4j_data = doctor_data.copy()
@@ -106,4 +94,3 @@ class SyncService:
         self.mongo_client.close()
 
         self.neo4j_driver.close()
-
