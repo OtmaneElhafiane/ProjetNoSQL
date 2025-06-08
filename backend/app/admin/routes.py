@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 
-from flask_jwt_extended import get_jwt, jwt_required, get_jwt_identity
+from flask_jwt_extended import get_jwt, jwt_required
 
 from pymongo import MongoClient
 from bson import ObjectId
@@ -170,54 +170,57 @@ def create_user():
             role=data["role"],
             first_name=data["first_name"],
             last_name=data["last_name"],
-            **{k: v for k, v in data.items() if k not in required_fields}
+            **{k: v for k, v in data.items() if k not in required_fields},
         )
-        
+
         # ✅ AJOUTER CETTE PARTIE
-        if data['role'] == 'doctor':
+        if data["role"] == "doctor":
             # Créer aussi un document dans la collection doctors
             doctor_data = {
-                'user_id': str(user._id),  # Référence vers l'utilisateur
-                'name': f"{data['first_name']} {data['last_name']}",
-                'email': data['email'],
-                'phone': data.get('phone', ''),
-                'speciality': data.get('speciality', ''),
-                'schedule': data.get('schedule', {})
+                "user_id": str(user._id),  # Référence vers l'utilisateur
+                "name": f"{data['first_name']} {data['last_name']}",
+                "email": data["email"],
+                "phone": data.get("phone", ""),
+                "speciality": data.get("speciality", ""),
+                "schedule": data.get("schedule", {}),
             }
-            
+
             result = db.doctors.insert_one(doctor_data)
-            doctor_data['_id'] = str(result.inserted_id)
-            
+            doctor_data["_id"] = str(result.inserted_id)
+
             # Synchroniser avec Neo4j
             sync_service.sync_doctor(doctor_data)
-        
-        elif data['role'] == 'patient':
+
+        elif data["role"] == "patient":
             # Créer aussi un document dans la collection patients
             patient_data = {
-                'user_id': str(user._id),
-                'name': f"{data['first_name']} {data['last_name']}",
-                'email': data['email'],
-                'phone': data.get('phone', ''),
-                'birth_date': data.get('birth_date', ''),
-                'address': data.get('address', '')
+                "user_id": str(user._id),
+                "name": f"{data['first_name']} {data['last_name']}",
+                "email": data["email"],
+                "phone": data.get("phone", ""),
+                "birth_date": data.get("birth_date", ""),
+                "address": data.get("address", ""),
             }
-            
+
             result = db.patients.insert_one(patient_data)
-            patient_data['_id'] = str(result.inserted_id)
-            
+            patient_data["_id"] = str(result.inserted_id)
+
             # Synchroniser avec Neo4j
             sync_service.sync_patient(patient_data)
-        
-        return jsonify({
-            'message': f'{user.role.capitalize()} créé avec succès',
-            'user': user.to_json()
-        }), 201
-        
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': 'Une erreur est survenue lors de la création de l\'utilisateur'}), 500
 
+        return jsonify(
+            {
+                "message": f"{user.role.capitalize()} créé avec succès",
+                "user": user.to_json(),
+            }
+        ), 201
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify(
+            {"error": "Une erreur est survenue lors de la création de l'utilisateur"}
+        ), 500
 
 
 @admin_bp.route("/users", methods=["GET"])
@@ -325,4 +328,3 @@ def delete_user(user_id):
         return jsonify(
             {"error": "Une erreur est survenue lors de la suppression de l'utilisateur"}
         ), 500
-
