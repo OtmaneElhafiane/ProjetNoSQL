@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AuthService } from '../auth.service';
+import { AuthService, RegisterData } from '../auth.service';
 
 @Component({
   selector: 'app-register',
@@ -19,8 +19,8 @@ import { AuthService } from '../auth.service';
                     type="text"
                     class="form-control"
                     id="firstName"
-                    formControlName="firstName"
-                    [class.is-invalid]="registerForm.get('firstName')?.invalid && registerForm.get('firstName')?.touched"
+                    formControlName="first_name"
+                    [class.is-invalid]="registerForm.get('first_name')?.invalid && registerForm.get('first_name')?.touched"
                   >
                   <div class="invalid-feedback">
                     Le prénom est requis
@@ -33,8 +33,8 @@ import { AuthService } from '../auth.service';
                     type="text"
                     class="form-control"
                     id="lastName"
-                    formControlName="lastName"
-                    [class.is-invalid]="registerForm.get('lastName')?.invalid && registerForm.get('lastName')?.touched"
+                    formControlName="last_name"
+                    [class.is-invalid]="registerForm.get('last_name')?.invalid && registerForm.get('last_name')?.touched"
                   >
                   <div class="invalid-feedback">
                     Le nom est requis
@@ -120,8 +120,8 @@ export class RegisterComponent {
     private router: Router
   ) {
     this.registerForm = this.fb.group({
-      firstName: ['', Validators.required],
-      lastName: ['', Validators.required],
+      first_name: ['', Validators.required],
+      last_name: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]],
       role: ['', Validators.required]
@@ -133,24 +133,21 @@ export class RegisterComponent {
       this.isLoading = true;
       this.error = null;
 
-      this.authService.register(this.registerForm.value).subscribe({
-        next: (response) => {
+      const formData: RegisterData = this.registerForm.value;
+
+      this.authService.register(formData).subscribe({
+        next: (response: any) => {
           this.isLoading = false;
-          // Rediriger vers la page appropriée en fonction du rôle
-          switch (response.user.role) {
-            case 'doctor':
-              this.router.navigate(['/doctor-dashboard']);
-              break;
-            case 'patient':
-              this.router.navigate(['/patient-dashboard']);
-              break;
-            default:
-              this.router.navigate(['/']);
-          }
+          console.log('Inscription réussie:', response);
+          
+          // Rediriger vers la page de connexion après inscription réussie
+          this.router.navigate(['/auth/login'], {
+            queryParams: { message: 'Inscription réussie. Veuillez vous connecter.' }
+          });
         },
-        error: (err) => {
+        error: (err: any) => {
           this.isLoading = false;
-          this.error = 'Une erreur est survenue lors de l\'inscription';
+          this.error = err.error?.error || 'Une erreur est survenue lors de l\'inscription';
           console.error('Register error:', err);
         }
       });

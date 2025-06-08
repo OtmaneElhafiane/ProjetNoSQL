@@ -36,40 +36,86 @@ def login():
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
+    """Route d'inscription compatible avec AuthService Angular"""
     data = request.get_json()
+    
+    # Récupérer les données selon le format attendu par Angular
     email = data.get('email')
     password = data.get('password')
+    first_name = data.get('first_name', '')
+    last_name = data.get('last_name', '')
     role = data.get('role', 'patient')
-    name = data.get('name', '')
+    
+    print(f"📝 Tentative d'inscription: {email} - {role}")
     
     if not email or not password:
-        return jsonify({'message': 'Email et mot de passe requis'}), 400
+        return jsonify({'error': 'Email et mot de passe requis'}), 400
     
-    users = get_collection('users')
-    if users.find_one({'email': email}):
-        return jsonify({'message': 'Email déjà utilisé'}), 400
+    if not first_name or not last_name:
+        return jsonify({'error': 'Prénom et nom requis'}), 400
     
-    hashed_password = generate_password_hash(password)
-    
-    user_id = users.insert_one({
-        'email': email,
-        'password': hashed_password,
-        'role': role,
-        'name': name
-    }).inserted_id
-    
-    access_token = create_access_token(identity=str(user_id))
-    
-    return jsonify({
-        'message': 'Inscription réussie',
-        'token': access_token,
-        'user': {
-            '_id': str(user_id),
-            'email': email,
-            'role': role,
-            'name': name
+    try:
+        from ..models.user import User
+        
+        # Créer l'utilisateur avec la logique existante
+        user = User.create_user(
+            email=email,
+            password=password,
+            role=role,
+            first_name=first_name,
+            last_name=last_name
+        )
+        
+        # Créer les tokens comme dans login
+        from flask_jwt_extended import create_access_token, create_refresh_token
+        
+        access_token = create_access_token(
+            identity=str(user._id), 
+            additional_claims={"role": user.role}
+        )
+        refresh_token = create_refresh_token(
+            identity=str(user._id), 
+            additional_claims={"role": user.role}
+        )
+        
+        # Déterminer la route de redirection selon le rôle
+        redirect_path = "/dashboard"
+        user_role = user.role
+        
+        if user_role == "admin":
+            redirect_path = "/admin/dashboard"
+        elif user_role == "doctor":
+            redirect_path = "/doctor/dashboard"
+        elif user_role == "patient":
+            redirect_path = "/patient/dashboard"
+        
+        # Préparer les données utilisateur
+        user_data = {
+            "id": str(user._id),
+            "email": user.email,
+            "role": user_role,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "redirect_path": redirect_path
         }
-    }), 201
+        
+        print(f"✅ Inscription réussie pour {email}")
+        
+        return jsonify({
+            "message": "Inscription réussie",
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "user": user_data,
+            "redirect_path": redirect_path
+        }), 201
+        
+    except ValueError as e:
+        print(f"❌ Erreur inscription: {e}")
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        print(f"❌ Erreur interne inscription: {e}")
+        return jsonify({"error": "Une erreur est survenue lors de l'inscription"}), 500
 
 @auth_bp.route('/profile', methods=['GET'])
 @jwt_required()

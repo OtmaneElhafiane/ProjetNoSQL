@@ -31,6 +31,85 @@ class User:
         user_data = get_db()[User.collection_name].find_one({'_id': user_id})
         return User(**user_data) if user_data else None
 
+    @staticmethod
+    def get_by_email_from_cabinet_medical(email):
+        """Récupérer un utilisateur par son email depuis la collection cabinet_medical.users"""
+        try:
+            db = get_db()
+            # Utiliser la collection 'users' dans la base 'cabinet_medical'
+            user_data = db.users.find_one({'email': email.lower()})
+            return user_data
+        except Exception as e:
+            print(f"Erreur lors de la récupération de l'utilisateur: {e}")
+            return None
+
+    @staticmethod
+    def get_by_id_from_cabinet_medical(user_id):
+        """Récupérer un utilisateur par son ID depuis la collection cabinet_medical.users"""
+        try:
+            db = get_db()
+            # Convertir l'ID string en ObjectId si nécessaire
+            if isinstance(user_id, str):
+                try:
+                    user_id = ObjectId(user_id)
+                except:
+                    pass
+            
+            user_data = db.users.find_one({'_id': user_id})
+            return user_data
+        except Exception as e:
+            print(f"Erreur lors de la récupération de l'utilisateur par ID: {e}")
+            return None
+
+    @staticmethod
+    def update_last_login_cabinet_medical(user_id):
+        """Mettre à jour la date de dernière connexion dans cabinet_medical.users"""
+        try:
+            db = get_db()
+            # Convertir l'ID string en ObjectId si nécessaire
+            if isinstance(user_id, str):
+                try:
+                    user_id = ObjectId(user_id)
+                except:
+                    pass
+            
+            db.users.update_one(
+                {'_id': user_id},
+                {'$set': {'last_login': datetime.utcnow()}}
+            )
+            return True
+        except Exception as e:
+            print(f"Erreur lors de la mise à jour de last_login: {e}")
+            return False
+
+    @staticmethod
+    def get_all_users_from_cabinet_medical():
+        """Récupérer tous les utilisateurs depuis cabinet_medical.users"""
+        try:
+            db = get_db()
+            users = list(db.users.find({}))
+            # Convertir ObjectId en string pour la sérialisation JSON
+            for user in users:
+                user['_id'] = str(user['_id'])
+            return users
+        except Exception as e:
+            print(f"Erreur lors de la récupération de tous les utilisateurs: {e}")
+            return []
+
+    @staticmethod
+    def get_users_by_role_from_cabinet_medical(role):
+        """Récupérer les utilisateurs par rôle depuis cabinet_medical.users"""
+        try:
+            db = get_db()
+            users = list(db.users.find({'role': role}))
+            # Convertir ObjectId en string pour la sérialisation JSON
+            for user in users:
+                user['_id'] = str(user['_id'])
+            return users
+        except Exception as e:
+            print(f"Erreur lors de la récupération des utilisateurs par rôle: {e}")
+            return []
+
     def check_password(self, password):
         """Vérifier le mot de passe"""
         if not self.password_hash:
@@ -100,20 +179,42 @@ class User:
     @staticmethod
     def create_user(email, password, role, first_name, last_name, **kwargs):
         """Créer un nouveau utilisateur (patient ou médecin)"""
-        if role not in ['patient', 'doctor']:
-            raise ValueError("Le rôle doit être 'patient' ou 'doctor'")
+        if role not in ['patient', 'doctor', 'admin']:
+            raise ValueError("Le rôle doit être 'patient', 'doctor' ou 'admin'")
         
-        existing_user = User.get_by_email(email)
+        # Vérifier si l'utilisateur existe déjà dans cabinet_medical.users
+        existing_user = User.get_by_email_from_cabinet_medical(email)
         if existing_user:
             raise ValueError("Un utilisateur avec cet email existe déjà")
         
-        user = User(
-            email=email,
-            password=password,
-            role=role,
-            first_name=first_name,
-            last_name=last_name,
-            **kwargs
-        )
-        user.save()
-        return user 
+        # Créer l'utilisateur directement dans la collection cabinet_medical.users
+        from ..extensions import get_db
+        from bson import ObjectId
+        from werkzeug.security import generate_password_hash
+        
+        # Utiliser le même format de hash que Werkzeug
+        password_hash = generate_password_hash(password, method='pbkdf2:sha256', salt_length=16)
+        
+        user_data = {
+            '_id': ObjectId(),
+            'email': email.lower(),
+            'password_hash': password_hash,
+            'role': role,
+            'first_name': first_name,
+            'last_name': last_name,
+            'created_at': datetime.utcnow(),
+            'last_login': None
+        }
+        
+        # Ajouter les kwargs
+        user_data.update(kwargs)
+        
+        # Sauvegarder dans cabinet_medical.users
+        db = get_db()
+        result = db.users.insert_one(user_data)
+        user_data['_id'] = result.inserted_id
+        
+        # Retourner un objet User
+        return type('User', (), user_data)
+
+ 

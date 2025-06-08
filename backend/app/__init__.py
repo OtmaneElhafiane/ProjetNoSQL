@@ -1,4 +1,5 @@
 from flask import Flask
+from flask_cors import CORS
 from datetime import timedelta
 from .extensions import init_extensions, close_extensions
 import os
@@ -13,6 +14,13 @@ def create_app():
 
     # Create Flask app
     app = Flask(__name__)
+    
+    # Configure CORS
+    CORS(app, 
+         origins=["http://localhost:4200", "http://127.0.0.1:4200"],
+         supports_credentials=True,
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+         allow_headers=["Content-Type", "Authorization"])
 
     # Use centralized configuration from Config class
     app.config["JWT_SECRET_KEY"] = Config.JWT_SECRET_KEY
@@ -62,6 +70,15 @@ def create_app():
         print("✅ Auth blueprint registered")
     except ImportError as e:
         print(f"⚠️ auth blueprint not found - skipping: {e}")
+
+    # Register additional auth routes (temporary fix)
+    try:
+        from .routes.auth import auth_bp as routes_auth_bp
+
+        app.register_blueprint(routes_auth_bp, url_prefix="/api/auth", name="routes_auth")
+        print("✅ Routes Auth blueprint registered")
+    except ImportError as e:
+        print(f"⚠️ routes auth blueprint not found - skipping: {e}")
 
     try:
         from .doctor.routes import doctor_bp

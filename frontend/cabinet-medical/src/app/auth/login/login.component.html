@@ -1,6 +1,10 @@
 <div class="login-container">
   <div class="login-card">
-    <h2>Connexion</h2>
+    <div class="login-header">
+      <h2>Connexion au Cabinet Médical</h2>
+      <p class="text-muted">Connectez-vous pour accéder à votre espace</p>
+    </div>
+    
     <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
       <div class="form-group">
         <label for="email">Email</label>
@@ -9,12 +13,14 @@
           id="email"
           formControlName="email"
           class="form-control"
-          [class.is-invalid]="loginForm.get('email')?.invalid && loginForm.get('email')?.touched"
+          [class.is-invalid]="isEmailInvalid"
+          placeholder="Votre adresse email"
+          autocomplete="email"
         >
-        <div class="invalid-feedback" *ngIf="loginForm.get('email')?.errors?.['required']">
+        <div class="invalid-feedback" *ngIf="emailControl?.errors?.['required'] && emailControl?.touched">
           L'email est requis
         </div>
-        <div class="invalid-feedback" *ngIf="loginForm.get('email')?.errors?.['email']">
+        <div class="invalid-feedback" *ngIf="emailControl?.errors?.['email'] && emailControl?.touched">
           L'email n'est pas valide
         </div>
       </div>
@@ -26,26 +32,37 @@
           id="password"
           formControlName="password"
           class="form-control"
-          [class.is-invalid]="loginForm.get('password')?.invalid && loginForm.get('password')?.touched"
+          [class.is-invalid]="isPasswordInvalid"
+          placeholder="Votre mot de passe"
+          autocomplete="current-password"
         >
-        <div class="invalid-feedback" *ngIf="loginForm.get('password')?.errors?.['required']">
+        <div class="invalid-feedback" *ngIf="passwordControl?.errors?.['required'] && passwordControl?.touched">
           Le mot de passe est requis
         </div>
-        <div class="invalid-feedback" *ngIf="loginForm.get('password')?.errors?.['minlength']">
-          Le mot de passe doit contenir au moins 6 caractères
+        <div class="invalid-feedback" *ngIf="passwordControl?.errors?.['minlength'] && passwordControl?.touched">
+          Le mot de passe doit contenir au moins 4 caractères
         </div>
       </div>
 
-      <div *ngIf="error" class="alert alert-danger">
+      <div *ngIf="error" class="alert alert-danger" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i>
         {{ error }}
       </div>
 
-      <button type="submit" class="btn btn-primary w-100" [disabled]="loginForm.invalid">
-        Se connecter
+      <button 
+        type="submit" 
+        class="btn btn-primary w-100" 
+        [disabled]="loginForm.invalid || isLoading"
+      >
+        <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+        <span *ngIf="isLoading">Connexion en cours...</span>
+        <span *ngIf="!isLoading">Se connecter</span>
       </button>
 
-      <div class="register-link">
-        <p>Pas encore de compte ? <a routerLink="/auth/register">S'inscrire</a></p>
+      <div class="text-center mt-3">
+        <small class="text-muted">
+          Connectez-vous avec vos identifiants du cabinet médical
+        </small>
       </div>
     </form>
   </div>

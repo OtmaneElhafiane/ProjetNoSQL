@@ -2,15 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { AuthService } from './auth/auth.service';
+import { AuthService, User } from './auth/auth.service';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-
-interface User {
-  _id: string;
-  email: string;
-  role: string;
-}
 
 @Component({
   selector: 'app-root',
@@ -35,7 +29,7 @@ export class AppComponent implements OnInit {
 
   hasRole(role: string): Observable<boolean> {
     return this.authService.user$.pipe(
-      map(user => (user as User)?.role === role)
+      map(user => user?.role === role || false)
     );
   }
 
