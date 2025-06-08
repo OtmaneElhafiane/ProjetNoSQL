@@ -3,12 +3,15 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from pymongo import MongoClient
 from bson import ObjectId
 from ..config import Config
-
+from functools import wraps
 patient_bp = Blueprint('patient', __name__)
-mongo_client = MongoClient(Config.MONGO_URI)
+mongo_client = MongoClient(Config.MONGODB_URI)
 db = mongo_client.cabinet_medical
 
 def patient_required(f):
+    from functools import wraps
+    
+    @wraps(f)  # Cette ligne est cruciale
     @jwt_required()
     def decorated_function(*args, **kwargs):
         current_user_id = get_jwt_identity()

@@ -58,21 +58,21 @@ def create_app():
         print("⚠️  auth blueprint not found - skipping")
     
     try:
-        from .doctor import doctor_bp
+        from .doctor.routes import doctor_bp
         app.register_blueprint(doctor_bp, url_prefix='/api/doctors')
         print("✅ Doctors blueprint registered")
     except ImportError:
         print("⚠️  doctors blueprint not found - skipping")
     
     try:
-        from .patient import patient_bp
+        from .patient.routes import patient_bp
         app.register_blueprint(patient_bp, url_prefix='/api/patients')
         print("✅ Patients blueprint registered")
     except ImportError:
         print("⚠️  patients blueprint not found - skipping")
     
     try:
-        from .consultation import consultation_bp
+        from .consultation.routes import consultation_bp
         app.register_blueprint(consultation_bp, url_prefix='/api/consultations')
         print("✅ Consultations blueprint registered")
     except ImportError:
@@ -100,36 +100,8 @@ def create_app():
     # Register teardown function
     app.teardown_appcontext(close_extensions)
     
-<<<<<<< HEAD
-=======
-    # Register blueprints
-    try:
-        from .auth.routes import auth_bp
-        app.register_blueprint(auth_bp, url_prefix='/api/auth')
-        print("✅ Auth blueprint registered")
-    except ImportError as e:
-        print(f"⚠️  auth blueprint not found - skipping: {e}")
-    
-    try:
-        from .routes.users import users_bp
-        app.register_blueprint(users_bp, url_prefix='/api/users')
-        print("✅ Users blueprint registered")
-    except ImportError as e:
-        print(f"⚠️  users blueprint not found - skipping: {e}")
-    
-    try:
-        from .admin.routes import admin_bp
-        app.register_blueprint(admin_bp, url_prefix='/api/admin')
-        print("✅ Admin blueprint registered")
-    except ImportError as e:
-        print(f"⚠️  admin blueprint not found - skipping: {e}")
-    try:
-        from .doctor.routes import doctor_bp
-        app.register_blueprint(doctor_bp, url_prefix='/api/doctor')
-        print("✅ Doctor blueprint registered")
-    except ImportError as e:
-        print(f"⚠️ doctor blueprint not found - skipping: {e}")
+
 
     
->>>>>>> cc58e49 (modification du admin/routes et data/sync_service)
+
     return app

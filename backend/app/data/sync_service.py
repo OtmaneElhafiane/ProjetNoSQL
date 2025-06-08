@@ -12,7 +12,7 @@ class SyncService:
 
     def sync_patient(self, patient_data):
         """Synchronize patient data between MongoDB and Neo4j"""
-<<<<<<< HEAD
+
         # MongoDB operation
         db = self.mongo_client.cabinet_medical
         db.patients.update_one(
@@ -24,19 +24,13 @@ class SyncService:
         neo4j_data["id"] = str(patient_data["_id"])  # Convert MongoDB _id to Neo4j id
 
         # Neo4j operation
-=======
-        # Prepare data for Neo4j
-        neo4j_data = patient_data.copy()
-        neo4j_data['id'] = str(patient_data['_id'])  # Convert MongoDB _id to Neo4j id
-        
-        # Neo4j operation only
->>>>>>> cc58e49 (modification du admin/routes et data/sync_service)
+
         with self.neo4j_driver.session() as session:
             session.write_transaction(self._create_or_update_patient_node, neo4j_data)
 
     def sync_doctor(self, doctor_data):
         """Synchronize doctor data between MongoDB and Neo4j"""
-<<<<<<< HEAD
+
         # MongoDB operation
         db = self.mongo_client.cabinet_medical
         db.doctors.update_one(
@@ -48,27 +42,12 @@ class SyncService:
         neo4j_data["id"] = str(doctor_data["_id"])  # Convert MongoDB _id to Neo4j id
 
         # Neo4j operation
-=======
-        # Prepare data for Neo4j
-        neo4j_data = doctor_data.copy()
-        neo4j_data['id'] = str(doctor_data['_id'])  # Convert MongoDB _id to Neo4j id
-        
-        # Neo4j operation only
->>>>>>> cc58e49 (modification du admin/routes et data/sync_service)
+
         with self.neo4j_driver.session() as session:
             session.write_transaction(self._create_or_update_doctor_node, neo4j_data)
 
     def sync_consultation(self, consultation_data):
         """Synchronize consultation data and create relationships in Neo4j"""
-<<<<<<< HEAD
-        # MongoDB operation
-        db = self.mongo_client.cabinet_medical
-        db.consultations.update_one(
-            {"_id": consultation_data["_id"]}, {"$set": consultation_data}, upsert=True
-        )
-
-=======
->>>>>>> cc58e49 (modification du admin/routes et data/sync_service)
         # Prepare data for Neo4j
         neo4j_data = consultation_data.copy()
         neo4j_data["id"] = str(
@@ -125,8 +104,6 @@ class SyncService:
     def close(self):
         """Close all database connections"""
         self.mongo_client.close()
-<<<<<<< HEAD
+
         self.neo4j_driver.close()
-=======
-        self.neo4j_driver.close()
->>>>>>> cc58e49 (modification du admin/routes et data/sync_service)
+
