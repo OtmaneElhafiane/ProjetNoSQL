@@ -165,21 +165,11 @@ def create_user():
 
         # Créer l'utilisateur
         user = User.create_user(
-
             email=data["email"],
             password=data["password"],
             role=data["role"],
             first_name=data["first_name"],
             last_name=data["last_name"],
-            **{
-                k: v for k, v in data.items() if k not in required_fields
-            },  # Champs additionnels
-    
-            email=data['email'],
-            password=data['password'],
-            role=data['role'],
-            first_name=data['first_name'],
-            last_name=data['last_name'],
             **{k: v for k, v in data.items() if k not in required_fields}
         )
         

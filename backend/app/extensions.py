@@ -2,7 +2,7 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from pymongo import MongoClient
 from neo4j import GraphDatabase
-from flask import g
+from flask import current_app, g
 import logging
 from pymongo.errors import ConnectionFailure
 from neo4j.exceptions import ServiceUnavailable
@@ -18,28 +18,24 @@ jwt = JWTManager()
 mongo_client = None
 neo4j_driver = None
 
-
 def get_db():
     """Get MongoDB database instance"""
-    if "db" not in g:
-        g.db = mongo_client["cabinet_medical"]
+    if 'db' not in g:
+        g.db = mongo_client['cabinet_medical']
     return g.db
 
-
 def init_mongodb(app):
-    """Initialize MongoDB connection - Simple approach like your old project"""
-    global mongo
+    """Initialize MongoDB connection"""
+    global mongo_client
     try:
-        # Simple MongoDB connection - exactly like your old project
-        username = "randomstuffformehdi"
-        password = quote_plus("root")
-        uri = f"mongodb+srv://{username}:{password}@cluster0.kkryhtz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+        # Get MongoDB URI from app config
+        uri = app.config['MONGODB_URI']
         
         logger.info("Connecting to MongoDB Atlas...")
-        mongo = MongoClient(uri)
+        mongo_client = MongoClient(uri)
         
         # Simple connection test
-        mongo.admin.command('ping')
+        mongo_client.admin.command('ping')
         logger.info("✅ Successfully connected to MongoDB Atlas")
         return True
         
@@ -50,15 +46,14 @@ def init_mongodb(app):
         logger.error(f"❌ Unexpected error connecting to MongoDB: {e}")
         return False
 
-
 def init_neo4j(app):
     """Initialize Neo4j connection with retry logic"""
     global neo4j_driver
     try:
-        # Use the working credentials from your other project
-        NEO4J_URI = "neo4j+s://236ac439.databases.neo4j.io"
-        NEO4J_USER = "neo4j"
-        NEO4J_PASSWORD = quote_plus("6HMkNw9Oh2s3xX_rH4I9DV4ZT-rSN_z8lsQ24MeZKAg")
+        # Get Neo4j configuration from app config
+        NEO4J_URI = app.config['NEO4J_URI']
+        NEO4J_USER = app.config['NEO4J_USER']
+        NEO4J_PASSWORD = app.config['NEO4J_PASSWORD']
         
         logger.info(f"Connecting to Neo4j: {NEO4J_URI}")
         
@@ -81,7 +76,6 @@ def init_neo4j(app):
         logger.error(f"❌ Unexpected error connecting to Neo4j: {e}")
         return False
 
-
 def setup_neo4j_constraints():
     """Setup Neo4j constraints with error handling"""
     try:
@@ -95,9 +89,9 @@ def setup_neo4j_constraints():
                 # Indexes for better performance
                 "CREATE INDEX IF NOT EXISTS FOR (d:Doctor) ON (d.email)",
                 "CREATE INDEX IF NOT EXISTS FOR (p:Patient) ON (p.email)",
-                "CREATE INDEX IF NOT EXISTS FOR (a:Appointment) ON (a.date)",
+                "CREATE INDEX IF NOT EXISTS FOR (a:Appointment) ON (a.date)"
             ]
-
+            
             for constraint in constraints:
                 try:
                     session.run(constraint)
@@ -110,25 +104,20 @@ def setup_neo4j_constraints():
         logger.error(f"❌ Failed to set up Neo4j constraints: {e}")
         return False
 
-
 def init_extensions(app):
     """Initialize Flask extensions with proper error handling"""
     
-    # Initialize CORS
-    cors.init_app(
-        app,
-        resources={r"/api/*": {"origins": "*"}},
-        allow_headers=['Content-Type', 'Authorization', 'Access-Control-Allow-Credentials']
-    )
+    # Initialize CORS with simple configuration
+    cors.init_app(app)
     
     # Initialize JWT
     jwt.init_app(app)
     
-    # Initialize MongoDB - Simple approach
+    # Initialize MongoDB
     logger.info("🔄 Initializing MongoDB connection...")
     if not init_mongodb(app):
         raise RuntimeError("Failed to initialize MongoDB connection")
-
+    
     # Initialize Neo4j
     logger.info("🔄 Initializing Neo4j connection...")
     if not init_neo4j(app):
@@ -140,29 +129,26 @@ def init_extensions(app):
     
     logger.info("✅ All extensions initialized successfully")
 
-def close_extensions():
-    """Close database connections"""
-    if mongo:
-        try:
-            mongo.close()
-            logger.info("MongoDB connection closed")
-        except Exception as e:
-            logger.error(f"Error closing MongoDB connection: {e}")
+def close_extensions(error):
+    """Close database connections - Fixed to properly accept error parameter"""
+    db = g.pop('db', None)
     
+    # Close Neo4j connection
+    global neo4j_driver
     if neo4j_driver:
         try:
             neo4j_driver.close()
             logger.info("Neo4j connection closed")
-        except Exception as e:
-            logger.error(f"Error closing Neo4j connection: {e}")
-
-def get_db():
-    """Get MongoDB database instance - like your old project"""
-    if not mongo:
-        raise RuntimeError("MongoDB connection not initialized")
-    return mongo.get_database()
+        except Exception as ex:
+            logger.error(f"Error closing Neo4j connection: {ex}")
 
 def get_collection(collection_name):
     """Get a specific collection - helper function"""
     db = get_db()
     return db[collection_name]
+
+# Add this function to get Neo4j driver for use in other modules
+def get_neo4j_driver():
+    """Get Neo4j driver instance"""
+    global neo4j_driver
+    return neo4j_driver
