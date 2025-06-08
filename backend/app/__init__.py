@@ -22,28 +22,30 @@ def create_app():
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
          allow_headers=["Content-Type", "Authorization"])
 
+    
     # Use centralized configuration from Config class
-    app.config["JWT_SECRET_KEY"] = Config.JWT_SECRET_KEY
-    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = Config.JWT_ACCESS_TOKEN_EXPIRES
-    app.config["JWT_REFRESH_TOKEN_EXPIRES"] = Config.JWT_REFRESH_TOKEN_EXPIRES
-    app.config["MONGODB_URI"] = Config.MONGODB_URI
-
+    app.config['JWT_SECRET_KEY'] = Config.JWT_SECRET_KEY
+    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = Config.JWT_ACCESS_TOKEN_EXPIRES
+    app.config['JWT_REFRESH_TOKEN_EXPIRES'] = Config.JWT_REFRESH_TOKEN_EXPIRES
+    app.config['MONGODB_URI'] = Config.MONGODB_URI
+    
     # Neo4j Configuration - Use Config class values
-    app.config["NEO4J_URI"] = Config.NEO4J_URI
-    app.config["NEO4J_USER"] = Config.NEO4J_USER
-    app.config["NEO4J_PASSWORD"] = Config.NEO4J_PASSWORD
-    app.config["NEO4J_OPTIONS"] = Config.NEO4J_OPTIONS
-
+    app.config['NEO4J_URI'] = Config.NEO4J_URI
+    app.config['NEO4J_USER'] = Config.NEO4J_USER
+    app.config['NEO4J_PASSWORD'] = Config.NEO4J_PASSWORD
+    app.config['NEO4J_OPTIONS'] = Config.NEO4J_OPTIONS
+    
     # Security Configuration
-    app.config["SECRET_KEY"] = Config.SECRET_KEY
-    app.config["BCRYPT_LOG_ROUNDS"] = Config.BCRYPT_LOG_ROUNDS
-
+    app.config['SECRET_KEY'] = Config.SECRET_KEY
+    app.config['BCRYPT_LOG_ROUNDS'] = Config.BCRYPT_LOG_ROUNDS
+    
     # Debug configuration
-    app.config["DEBUG"] = Config.DEBUG
-
+    app.config['DEBUG'] = Config.DEBUG
+    
     # Rate Limiting
-    app.config["RATELIMIT_DEFAULT"] = Config.RATELIMIT_DEFAULT
-    app.config["RATELIMIT_STORAGE_URL"] = Config.RATELIMIT_STORAGE_URL
+    app.config['RATELIMIT_DEFAULT'] = Config.RATELIMIT_DEFAULT
+    app.config['RATELIMIT_STORAGE_URL'] = Config.RATELIMIT_STORAGE_URL
+    
 
     # Debug: Print Neo4j configuration (remove password for security)
     print(f"🔍 Neo4j URI: {app.config['NEO4J_URI']}")
