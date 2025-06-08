@@ -234,34 +234,65 @@ def delete_doctor(user_id):
         if not user or user.role != 'doctor':
             return jsonify({"error": "Docteur non trouvé"}), 404
         
-        # Vérifier s'il y a des consultations liées
-        consultations_count = db.consultations.count_documents({'doctor_id': {'$exists': True}})
-        if consultations_count > 0:
-            # Optionnel: empêcher la suppression s'il y a des consultations
-            # Ou vous pouvez choisir de supprimer en cascade
-            pass
+        # Récupérer les données du docteur AVANT la suppression
+        doctor_data = db.doctors.find_one({'user_id': user_id})
+        if not doctor_data:
+            return jsonify({"error": "Données du docteur non trouvées"}), 404
         
-        # Supprimer de la collection doctors
-        db.doctors.delete_one({'user_id': user_id})
+        # Utiliser l'_id du document doctor car le SyncService utilise "id" dans Neo4j
+        doctor_neo4j_id = str(doctor_data['_id'])
         
-        # Supprimer de la collection users
-        db.users.delete_one({'_id': user._id})
+        print(f"Tentative de suppression Neo4j avec id: {doctor_neo4j_id}")
         
-        # Optionnel: Nettoyer Neo4j
+        # Supprimer de Neo4j EN PREMIER
         try:
             with neo4j_driver.session() as session:
-                session.run("""
-                    MATCH (d:Doctor {mongo_id: $user_id})
-                    DETACH DELETE d
-                """, user_id=user_id)
+                # Vérifier d'abord si le nœud existe avec la propriété "id"
+                check_result = session.run("""
+                    MATCH (d:Doctor {id: $doctor_id})
+                    RETURN d.id as found_id, d.name as name
+                """, doctor_id=doctor_neo4j_id)
+                
+                found_record = check_result.single()
+                if found_record:
+                    print(f"Nœud trouvé: {found_record['found_id']} - {found_record['name']}")
+                    
+                    # Supprimer le nœud avec DETACH DELETE pour supprimer aussi les relations
+                    delete_result = session.run("""
+                        MATCH (d:Doctor {id: $doctor_id})
+                        DETACH DELETE d
+                        RETURN count(d) as deleted_count
+                    """, doctor_id=doctor_neo4j_id)
+                    
+                    delete_record = delete_result.single()
+                    deleted_count = delete_record['deleted_count'] if delete_record else 0
+                    print(f"Nœuds Doctor supprimés de Neo4j: {deleted_count}")
+                    
+                    if deleted_count == 0:
+                        print("ATTENTION: Aucun nœud n'a été supprimé!")
+                        return jsonify({"error": "Échec de la suppression dans Neo4j"}), 500
+                else:
+                    print(f"Aucun nœud trouvé avec id: {doctor_neo4j_id}")
+                    # Optionnel: lister tous les docteurs pour debug
+                    debug_result = session.run("MATCH (d:Doctor) RETURN d.id, d.name LIMIT 5")
+                    all_doctors = list(debug_result)
+                    print(f"Docteurs existants dans Neo4j: {all_doctors}")
+                    
+                    # Ne pas faire échouer si le nœud n'existe pas dans Neo4j
+                    print("Le nœud n'existe pas dans Neo4j, continuation de la suppression MongoDB")
+                
         except Exception as neo4j_error:
-            # Log l'erreur mais ne pas faire échouer la suppression
             print(f"Erreur Neo4j lors de la suppression: {neo4j_error}")
+            return jsonify({"error": f"Erreur lors de la suppression dans Neo4j: {str(neo4j_error)}"}), 500
+        
+        # Supprimer de MongoDB seulement après Neo4j
+        db.doctors.delete_one({'user_id': user_id})
+        db.users.delete_one({'_id': user._id})
         
         return jsonify({"message": "Docteur supprimé avec succès"}), 200
         
     except Exception as e:
-        return jsonify({"error": "Une erreur est survenue lors de la suppression du docteur"}), 500
+        return jsonify({"error": f"Une erreur est survenue lors de la suppression du docteur: {str(e)}"}), 500
 
 # ======================== PROFILE DU DOCTEUR CONNECTÉ ========================
 
@@ -339,6 +370,12 @@ def update_doctor_profile():
                 {'user_id': current_user_id},
                 {'$set': doctor_updates}
             )
+            
+            # Récupérer les données mises à jour du docteur pour la synchronisation Neo4j
+            updated_doctor = db.doctors.find_one({'user_id': current_user_id})
+            if updated_doctor:
+                updated_doctor['_id'] = str(updated_doctor['_id'])
+                sync_service.sync_doctor(updated_doctor)
         
         return jsonify({
             "message": "Profil mis à jour avec succès",
@@ -362,14 +399,15 @@ def get_consultation_history():
         if not doctor:
             return jsonify({'error': 'Docteur non trouvé'}), 404
         
-        doctor_mongo_id = str(doctor['_id'])
+        # Utiliser l'_id du document doctor car le SyncService utilise "id" dans Neo4j
+        doctor_neo4j_id = str(doctor['_id'])
         
         # Requête Neo4j pour récupérer toutes les relations CONSULTED_BY
         with neo4j_driver.session() as session:
             result = session.run("""
                 MATCH (p:Patient)-[r:CONSULTED_BY]->(d:Doctor)
-                WHERE d.mongo_id = $doctor_mongo_id
-                RETURN p.mongo_id as patient_mongo_id, 
+                WHERE d.id = $doctor_id
+                RETURN p.id as patient_mongo_id, 
                        r.consultation_id as consultation_id,
                        r.date as date,
                        r.motif as motif,
@@ -379,7 +417,7 @@ def get_consultation_history():
                        r.status as status,
                        r.created_at as created_at
                 ORDER BY r.date DESC
-            """, doctor_mongo_id=doctor_mongo_id)
+            """, doctor_id=doctor_neo4j_id)
             
             consultations_history = []
             
@@ -439,19 +477,20 @@ def update_consultation_status(consultation_id):
         if not doctor:
             return jsonify({'error': 'Docteur non trouvé'}), 404
         
-        doctor_mongo_id = str(doctor['_id'])
+        # Utiliser l'_id du document doctor car le SyncService utilise "id" dans Neo4j
+        doctor_neo4j_id = str(doctor['_id'])
         
         # Mettre à jour le statut dans Neo4j
         with neo4j_driver.session() as session:
             result = session.run("""
                 MATCH (p:Patient)-[r:CONSULTED_BY]->(d:Doctor)
                 WHERE r.consultation_id = $consultation_id 
-                AND d.mongo_id = $doctor_mongo_id
+                AND d.id = $doctor_id
                 SET r.status = $status, r.updated_at = datetime()
                 RETURN r.status as updated_status, r.consultation_id as consultation_id
             """, 
             consultation_id=consultation_id,
-            doctor_mongo_id=doctor_mongo_id,
+            doctor_id=doctor_neo4j_id,
             status=new_status)
             
             record = result.single()
@@ -479,17 +518,18 @@ def get_upcoming_consultations():
         if not doctor:
             return jsonify({'error': 'Docteur non trouvé'}), 404
         
-        doctor_mongo_id = str(doctor['_id'])
+        # Utiliser l'_id du document doctor car le SyncService utilise "id" dans Neo4j
+        doctor_neo4j_id = str(doctor['_id'])
         today = datetime.now().date().isoformat()
         
         # Requête Neo4j pour les consultations à venir non annulées
         with neo4j_driver.session() as session:
             result = session.run("""
                 MATCH (p:Patient)-[r:CONSULTED_BY]->(d:Doctor)
-                WHERE d.mongo_id = $doctor_mongo_id
+                WHERE d.id = $doctor_id
                 AND datetime(r.date) >= datetime($today)
                 AND (r.status IS NULL OR r.status <> 'cancelled')
-                RETURN p.mongo_id as patient_mongo_id, 
+                RETURN p.id as patient_mongo_id, 
                        r.consultation_id as consultation_id,
                        r.date as date,
                        r.motif as motif,
@@ -500,7 +540,7 @@ def get_upcoming_consultations():
                        r.created_at as created_at
                 ORDER BY r.date ASC
             """, 
-            doctor_mongo_id=doctor_mongo_id,
+            doctor_id=doctor_neo4j_id,
             today=today + "T00:00:00+00:00")
             
             upcoming_consultations = []
@@ -583,14 +623,15 @@ def get_patient_history(patient_id):
         if not doctor:
             return jsonify({'error': 'Docteur non trouvé'}), 404
         
-        doctor_mongo_id = str(doctor['_id'])
+        # Utiliser l'_id du document doctor car le SyncService utilise "id" dans Neo4j
+        doctor_neo4j_id = str(doctor['_id'])
         
         # Requête Neo4j pour l'historique d'un patient spécifique
         with neo4j_driver.session() as session:
             result = session.run("""
                 MATCH (p:Patient)-[r:CONSULTED_BY]->(d:Doctor)
-                WHERE d.mongo_id = $doctor_mongo_id
-                AND p.mongo_id = $patient_id
+                WHERE d.id = $doctor_id
+                AND p.id = $patient_id
                 RETURN r.consultation_id as consultation_id,
                        r.date as date,
                        r.motif as motif,
@@ -601,7 +642,7 @@ def get_patient_history(patient_id):
                        r.created_at as created_at
                 ORDER BY r.date DESC
             """, 
-            doctor_mongo_id=doctor_mongo_id,
+            doctor_id=doctor_neo4j_id,
             patient_id=patient_id)
             
             patient_history = []
