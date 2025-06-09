@@ -398,35 +398,42 @@ def get_consultation_history():
     try:
         current_user_id = get_jwt_identity()
         doctor = db.doctors.find_one({'user_id': current_user_id})
-        
         if not doctor:
             return jsonify({'error': 'Docteur non trouvé'}), 404
         
-        # Utiliser l'_id du document doctor car le SyncService utilise "id" dans Neo4j
-        doctor_neo4j_id = str(doctor['_id'])
+        doctor_mongo_id = str(doctor['user_id'])
+        print(f"Recherche des consultations pour le docteur mongo_id: {doctor_mongo_id}")
         
-        # Requête Neo4j pour récupérer toutes les relations CONSULTED_BY
         with neo4j_driver.session() as session:
             result = session.run("""
-                MATCH (p:Patient)-[r:CONSULTED_BY]->(d:Doctor)
-                WHERE d.id = $doctor_id
-                RETURN p.id as patient_mongo_id, 
-                       r.consultation_id as consultation_id,
-                       r.date as date,
-                       r.motif as motif,
-                       r.diagnostic as diagnostic,
-                       r.traitement as traitement,
-                       r.notes as notes,
-                       r.status as status,
-                       r.created_at as created_at
-                ORDER BY r.date DESC
-            """, doctor_id=doctor_neo4j_id)
+                    MATCH (p:Patient)-[r:CONSULTED_BY]->(d:Doctor)
+                    WHERE d.mongo_id = $doctor_mongo_id
+                    RETURN p.mongo_id as patient_mongo_id,
+                        r.consultation_id as consultation_id,
+                        r.date as date,
+                        r.motif as motif,
+                        r.diagnostic as diagnostic,
+                        r.traitement as traitement,
+                        r.notes as notes,
+                        r.status as status,
+                        r.created_at as created_at
+                    ORDER BY r.date DESC
+            """, doctor_mongo_id=doctor_mongo_id)  # CORRECTION: Utiliser doctor_mongo_id
             
             consultations_history = []
             
+            # Itérer sur les enregistrements du résultat
             for record in result:
+                print(f"Traitement de l'enregistre±ment: {dict(record)}")
+                
                 # Récupérer les informations du patient depuis MongoDB
-                patient = db.patients.find_one({'_id': ObjectId(record['patient_mongo_id'])})
+                patient_mongo_id = record['patient_mongo_id']
+                try:
+                    patient = db.patients.find_one({'user_id': patient_mongo_id})
+                    print(f"Patient trouvé: {patient['name'] if patient else 'Non trouvé'}")
+                except Exception as patient_error:
+                    print(f"Erreur lors de la recherche du patient {patient_mongo_id}: {patient_error}")
+                    patient = None
                 
                 if patient:
                     consultation_data = {
@@ -448,6 +455,10 @@ def get_consultation_history():
                         }
                     }
                     consultations_history.append(consultation_data)
+                else:
+                    print(f"Patient avec ID {patient_mongo_id} non trouvé dans MongoDB")
+            
+            print(f"Nombre total de consultations trouvées: {len(consultations_history)}")
             
             return jsonify({
                 'consultations': consultations_history,
@@ -455,6 +466,7 @@ def get_consultation_history():
             }), 200
             
     except Exception as e:
+        print(f"Erreur dans get_consultation_history: {str(e)}")
         return jsonify({'error': f'Erreur lors de la récupération de l\'historique: {str(e)}'}), 500
 
 @doctor_bp.route('/consultations/<consultation_id>/status', methods=['PUT'])
@@ -470,7 +482,7 @@ def update_consultation_status(consultation_id):
             return jsonify({'error': 'Statut requis'}), 400
         
         # Valider le statut
-        valid_statuses = ['pending', 'completed', 'cancelled', 'rescheduled']
+        valid_statuses = ['pending', 'completed', 'cancelled']
         if new_status not in valid_statuses:
             return jsonify({'error': f'Statut invalide. Statuts valides: {valid_statuses}'}), 400
         
@@ -478,17 +490,18 @@ def update_consultation_status(consultation_id):
         doctor = db.doctors.find_one({'user_id': current_user_id})
         
         if not doctor:
+            print("doctuer non trouvé : " , current_user_id)
             return jsonify({'error': 'Docteur non trouvé'}), 404
         
         # Utiliser l'_id du document doctor car le SyncService utilise "id" dans Neo4j
-        doctor_neo4j_id = str(doctor['_id'])
-        
+        doctor_neo4j_id = str(doctor['user_id'])
+        print("noe4j doctor id" , doctor_neo4j_id)
         # Mettre à jour le statut dans Neo4j
         with neo4j_driver.session() as session:
             result = session.run("""
                 MATCH (p:Patient)-[r:CONSULTED_BY]->(d:Doctor)
                 WHERE r.consultation_id = $consultation_id 
-                AND d.id = $doctor_id
+                AND d.mongo_id = $doctor_id
                 SET r.status = $status, r.updated_at = datetime()
                 RETURN r.status as updated_status, r.consultation_id as consultation_id
             """, 
@@ -522,17 +535,17 @@ def get_upcoming_consultations():
             return jsonify({'error': 'Docteur non trouvé'}), 404
         
         # Utiliser l'_id du document doctor car le SyncService utilise "id" dans Neo4j
-        doctor_neo4j_id = str(doctor['_id'])
+        doctor_neo4j_id = str(doctor['user_id'])
         today = datetime.now().date().isoformat()
         
         # Requête Neo4j pour les consultations à venir avec statut 'pending' uniquement
         with neo4j_driver.session() as session:
             result = session.run("""
                 MATCH (p:Patient)-[r:CONSULTED_BY]->(d:Doctor)
-                WHERE d.id = $doctor_id
+                WHERE d.mongo_id = $doctor_id
                 AND datetime(r.date) >= datetime($today)
                 AND NOT r.status IN ['cancelled', 'completed']
-                RETURN p.id as patient_mongo_id, 
+                RETURN p.mongo_id as patient_mongo_id, 
                        r.consultation_id as consultation_id,
                        r.date as date,
                        r.motif as motif,
@@ -550,7 +563,7 @@ def get_upcoming_consultations():
             
             for record in result:
                 # Récupérer les informations du patient depuis MongoDB
-                patient = db.patients.find_one({'_id': ObjectId(record['patient_mongo_id'])})
+                patient = db.patients.find_one({'user_id': record['patient_mongo_id']})
                 
                 if patient:
                     consultation_data = {
@@ -617,23 +630,43 @@ def update_consultation(consultation_id):
 @jwt_required()
 @doctor_required
 def get_patient_history(patient_id):
-    """Récupérer l'historique des consultations d'un patient spécifique via Neo4j"""
     try:
+        print("patient_id", patient_id)
         current_user_id = get_jwt_identity()
-        doctor = db.doctors.find_one({'user_id': current_user_id})
+        print("l id du docteur" , current_user_id)
+        # Convertir en ObjectId pour la recherche MongoDB
+        try:
+            doctor = db.doctors.find_one({'user_id': current_user_id})
+        except Exception as e:
+            print(f"Erreur lors de la recherche du docteur: {e}")
+            return jsonify({'error': 'Format d\'ID docteur invalide'}), 400
+        
+        # Chercher le patient par _id
+        try:
+            patient = db.patients.find_one({'_id': ObjectId(patient_id)})
+        except Exception as e:
+            print(f"Erreur lors de la recherche du patient: {e}")
+            return jsonify({'error': 'Format d\'ID patient invalide'}), 400
         
         if not doctor:
+            print(f"Docteur non trouvé avec l'ID: {current_user_id}")
             return jsonify({'error': 'Docteur non trouvé'}), 404
+        if not patient:
+            print(f"Patient non trouvé avec l'ID: {patient_id}")
+            return jsonify({'error': 'Patient non trouvé'}), 404
         
-        # Utiliser l'_id du document doctor car le SyncService utilise "id" dans Neo4j
-        doctor_neo4j_id = str(doctor['_id'])
+        doctor_neo4j_id = str(doctor['user_id'])
+        patient_user_id = str(patient['user_id'])  # Utiliser le user_id du patient
+        
+        print("Doctor Neo4j ID:", doctor_neo4j_id)
+        print("Patient user_id for Neo4j:", patient_user_id)
         
         # Requête Neo4j pour l'historique d'un patient spécifique
         with neo4j_driver.session() as session:
             result = session.run("""
                 MATCH (p:Patient)-[r:CONSULTED_BY]->(d:Doctor)
-                WHERE d.id = $doctor_id
-                AND p.id = $patient_id
+                WHERE d.mongo_id = $doctor_id
+                AND p.mongo_id = $patient_user_id
                 RETURN r.consultation_id as consultation_id,
                        r.date as date,
                        r.motif as motif,
@@ -643,12 +676,11 @@ def get_patient_history(patient_id):
                        r.status as status,
                        r.created_at as created_at
                 ORDER BY r.date DESC
-            """, 
-            doctor_id=doctor_neo4j_id,
-            patient_id=patient_id)
+                """,
+                doctor_id=doctor_neo4j_id,
+                patient_user_id=patient_user_id)
             
             patient_history = []
-            
             for record in result:
                 consultation_data = {
                     'consultation_id': record['consultation_id'],
@@ -661,22 +693,19 @@ def get_patient_history(patient_id):
                     'created_at': record['created_at']
                 }
                 patient_history.append(consultation_data)
-            
-            # Récupérer les informations du patient
-            patient = db.patients.find_one({'_id': ObjectId(patient_id)})
-            
-            return jsonify({
-                'patient': {
-                    'id': str(patient['_id']),
-                    'name': patient['name'],
-                    'email': patient['email'],
-                    'phone': patient['phone'],
-                    'birth_date': patient.get('birth_date', ''),
-                    'address': patient.get('address', '')
-                } if patient else None,
-                'consultations': patient_history,
-                'total': len(patient_history)
-            }), 200
-            
+        
+        return jsonify({
+            'patient': {
+                'id': str(patient['_id']),
+                'name': patient['name'],
+                'email': patient['email'],
+                'phone': patient['phone'],
+                'birth_date': patient.get('birth_date', ''),
+                'address': patient.get('address', '')
+            },
+            'consultations': patient_history,
+            'total': len(patient_history)
+        }), 200
+        
     except Exception as e:
         return jsonify({'error': f'Erreur lors de la récupération de l\'historique du patient: {str(e)}'}), 500

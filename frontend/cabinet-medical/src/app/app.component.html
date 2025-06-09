@@ -21,15 +21,8 @@
 
       <!-- Menu Médecin -->
       <ul class="navbar-nav" *ngIf="hasRole('doctor') | async">
-        <li class="nav-item">
-          <a class="nav-link" routerLink="/doctor-dashboard" routerLinkActive="active">Tableau de bord</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" routerLink="/doctor-dashboard/appointments" routerLinkActive="active">Mes Rendez-vous</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" routerLink="/doctor-dashboard/patients" routerLinkActive="active">Mes Patients</a>
-        </li>
+       
+        
       </ul>
 
       <!-- Menu Patient -->

@@ -221,7 +221,7 @@ export class DoctorService {
   /**
    * Mettre à jour le statut d'une consultation
    */
-  updateConsultationStatus(consultationId: string, status: 'pending' | 'completed' | 'cancelled' | 'rescheduled'): Observable<ApiResponse> {
+  updateConsultationStatus(consultationId: string, status: 'pending' | 'completed' | 'cancelled' ): Observable<ApiResponse> {
     return this.http.put<ApiResponse>(`${this.apiUrl}/consultations/${consultationId}/status`, { status });
   }
 
@@ -295,12 +295,5 @@ export class DoctorService {
       .join('\n');
   }
 
-  /**
-   * Obtenir les créneaux disponibles pour un docteur à une date donnée
-   */
-  getAvailableSlots(doctorId: string, date: string): string[] {
-    // Cette méthode devrait être implémentée selon votre logique métier
-    // pour récupérer les créneaux disponibles depuis le backend
-    return [];
-  }
+ 
 }

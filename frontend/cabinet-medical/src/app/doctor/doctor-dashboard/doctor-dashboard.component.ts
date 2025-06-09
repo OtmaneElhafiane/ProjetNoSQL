@@ -1,7 +1,8 @@
 import { Component, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
-import { Consultation, DoctorResponse, DoctorService } from '../../../app/core/services/doctor.service';
+import { Consultation, DoctorResponse, DoctorService, PatientHistoryResponse, Patient } from '../../../app/core/services/doctor.service';
+
 @Component({
   selector: 'app-doctor-dashboard',
   template: `
@@ -32,9 +33,7 @@ import { Consultation, DoctorResponse, DoctorService } from '../../../app/core/s
                 <p *ngIf="doctorProfile.last_login"><strong>Dernière connexion:</strong> {{ doctorProfile.last_login | date:'dd/MM/yyyy HH:mm' }}</p>
               </div>
               
-              <button class="btn btn-outline-primary btn-sm w-100 mt-3" (click)="editProfile()">
-                Modifier le profil
-              </button>
+             
             </div>
             <div class="card-body" *ngIf="!doctorProfile && !profileLoading">
               <p class="text-center text-muted">Profil indisponible</p>
@@ -52,13 +51,13 @@ import { Consultation, DoctorResponse, DoctorService } from '../../../app/core/s
           <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
               <h6 class="mb-0">Historique récent</h6>
-              <button class="btn btn-sm btn-outline-primary" (click)="viewAllHistory()">
-                Voir tout
-              </button>
+             
             </div>
             <div class="card-body">
               <div *ngIf="recentConsultations.length > 0; else noHistory">
-                <div class="consultation-item" *ngFor="let consultation of recentConsultations.slice(0, 5)">
+                <div class="consultation-item clickable-item" 
+                     *ngFor="let consultation of recentConsultations.slice(0, 5)"
+                     (click)="viewPatientHistoryInline(consultation.patient.id)">
                   <div class="d-flex justify-content-between align-items-start mb-2">
                     <div>
                       <small class="text-muted">{{ consultation.date | date:'dd/MM HH:mm' }}</small>
@@ -164,11 +163,6 @@ import { Consultation, DoctorResponse, DoctorService } from '../../../app/core/s
                             <i class="fas fa-play me-1"></i>
                             {{ consultation.status === 'completed' ? 'Terminée' : 'Démarrer' }}
                           </button>
-                          <button class="btn btn-sm btn-outline-secondary" 
-                                  (click)="viewPatientHistory(consultation.patient.id)">
-                            <i class="fas fa-history me-1"></i>
-                            Historique
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -188,6 +182,103 @@ import { Consultation, DoctorResponse, DoctorService } from '../../../app/core/s
                 <button class="btn btn-sm btn-outline-warning ms-2" (click)="refreshUpcoming()">
                   Réessayer
                 </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Historique du patient sélectionné -->
+          <div class="card mb-4" *ngIf="showPatientHistory">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">
+                <i class="fas fa-user-md me-2"></i>
+                Historique de {{ selectedPatient?.name }}
+              </h5>
+              <button class="btn btn-sm btn-outline-secondary" (click)="closePatientHistory()">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <div class="card-body">
+              <div *ngIf="patientHistoryLoading" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Chargement...</span>
+                </div>
+              </div>
+
+              <div *ngIf="selectedPatient && !patientHistoryLoading" class="mb-3">
+                <div class="row">
+                  <div class="col-md-6">
+                    <p><strong>Email:</strong> {{ selectedPatient.email }}</p>
+                    <p><strong>Téléphone:</strong> {{ selectedPatient.phone }}</p>
+                  </div>
+                  <div class="col-md-6">
+                    <p><strong>Date de naissance:</strong> {{ selectedPatient.birth_date | date:'dd/MM/yyyy' }}</p>
+                    <p><strong>Adresse:</strong> {{ selectedPatient.address }}</p>
+                  </div>
+                </div>
+                <hr>
+              </div>
+
+              <div *ngIf="!patientHistoryLoading && patientConsultations.length > 0" class="table-responsive">
+                <table class="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Motif</th>
+                      <th>Diagnostic</th>
+                      <th>Traitement</th>
+                      <th>Statut</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let consultation of patientConsultations">
+                      <td>
+                        <div class="fw-semibold">{{ consultation.date | date:'dd/MM/yyyy' }}</div>
+                        <small class="text-muted">{{ consultation.date | date:'HH:mm' }}</small>
+                      </td>
+                      <td>
+                        <span class="text-truncate d-inline-block" style="max-width: 150px;" 
+                              [title]="consultation.motif">
+                          {{ consultation.motif }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="text-truncate d-inline-block" style="max-width: 150px;" 
+                              [title]="consultation.diagnostic">
+                          {{ consultation.diagnostic || 'Non renseigné' }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="text-truncate d-inline-block" style="max-width: 150px;" 
+                              [title]="consultation.traitement">
+                          {{ consultation.traitement || 'Non renseigné' }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="badge" [ngClass]="getStatusBadgeClass(consultation.status)">
+                          {{ getStatusText(consultation.status) }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="text-truncate d-inline-block" style="max-width: 120px;" 
+                              [title]="consultation.notes">
+                          {{ consultation.notes || 'Aucune note' }}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div *ngIf="!patientHistoryLoading && patientConsultations.length === 0" class="text-center py-4">
+                <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Aucun historique trouvé</h5>
+                <p class="text-muted">Ce patient n'a pas d'historique de consultations.</p>
+              </div>
+
+              <div *ngIf="patientHistoryError" class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                {{ patientHistoryError }}
               </div>
             </div>
           </div>
@@ -249,6 +340,20 @@ import { Consultation, DoctorResponse, DoctorService } from '../../../app/core/s
       padding: 0.5rem 0;
     }
     
+    .clickable-item {
+      cursor: pointer;
+      transition: all 0.2s ease;
+      padding: 0.75rem !important;
+      margin: 0.25rem 0;
+      border-radius: 0.375rem;
+    }
+    
+    .clickable-item:hover {
+      background-color: #f8f9fc;
+      transform: translateX(5px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
     .card {
       transition: transform 0.2s ease;
       border: 1px solid #e3e6f0;
@@ -302,13 +407,21 @@ export class DoctorDashboardComponent implements OnInit {
   recentConsultations: Consultation[] = [];
   historyLoading = false;
   
+  // Historique du patient sélectionné
+  showPatientHistory = false;
+  selectedPatient: Patient | null = null;
+  patientConsultations: Omit<Consultation, 'patient'>[] = [];
+  patientHistoryLoading = false;
+  patientHistoryError: string | null = null;
+  
   // Patients uniques (pour les statistiques)
   uniquePatients = new Set<string>();
 
   constructor(
     private router: Router,
     private authService: AuthService,
-    private doctorService: DoctorService
+    private doctorService: DoctorService,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
@@ -380,6 +493,34 @@ export class DoctorDashboardComponent implements OnInit {
     [...this.upcomingConsultations, ...this.recentConsultations].forEach(consultation => {
       this.uniquePatients.add(consultation.patient.id);
     });
+  }
+
+  // Nouvelle méthode pour afficher l'historique d'un patient
+  viewPatientHistoryInline(patientId: string): void {
+    this.patientHistoryLoading = true;
+    this.patientHistoryError = null;
+    this.showPatientHistory = true;
+    
+    this.doctorService.getPatientHistory(patientId).subscribe({
+      next: (response: PatientHistoryResponse) => {
+        this.selectedPatient = response.patient;
+        this.patientConsultations = response.consultations;
+        this.patientHistoryLoading = false;
+      },
+      error: (error: any) => {
+        console.error('Erreur lors du chargement de l\'historique du patient:', error);
+        this.patientHistoryError = 'Erreur lors du chargement de l\'historique du patient';
+        this.patientHistoryLoading = false;
+      }
+    });
+  }
+
+  // Méthode pour fermer l'historique du patient
+  closePatientHistory(): void {
+    this.showPatientHistory = false;
+    this.selectedPatient = null;
+    this.patientConsultations = [];
+    this.patientHistoryError = null;
   }
 
   refreshUpcoming(): void {
@@ -457,8 +598,6 @@ export class DoctorDashboardComponent implements OnInit {
       this.doctorService.updateConsultationStatus(consultation.consultation_id, 'completed').subscribe({
         next: () => {
           consultation.status = 'completed';
-          // Optionnel: naviguer vers une page de détails de consultation
-          this.router.navigate(['/doctor-dashboard/consultation', consultation.consultation_id]);
         },
         error: (error :any) => {
           console.error('Erreur lors de la mise à jour du statut:', error);
@@ -471,14 +610,7 @@ export class DoctorDashboardComponent implements OnInit {
     this.router.navigate(['/doctor-dashboard/patient-history', patientId]);
   }
 
-  viewAllHistory(): void {
-    this.router.navigate(['/doctor-dashboard/consultations-history']);
-  }
-
-  editProfile(): void {
-    this.router.navigate(['/doctor-dashboard/profile']);
-  }
-
+  
   navigateTo(path: string): void {
     this.router.navigate([path]);
   }
