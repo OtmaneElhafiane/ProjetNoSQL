@@ -4,39 +4,70 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface Patient {
-  _id: string;
-  userId: string;
-  firstName: string;
-  lastName: string;
+  _id?: string;
+  user_id: string;
   email: string;
-  dateOfBirth: Date;
-  gender: 'male' | 'female' | 'other';
-  phoneNumber: string;
-  address: {
-    street: string;
-    city: string;
-    postalCode: string;
-    country: string;
-  };
-  medicalHistory?: string;
-  allergies?: string[];
-  currentMedications?: string[];
-  bloodType?: string;
-  emergencyContact?: {
+  first_name: string;
+  last_name: string;
+  patient_id?: string;
+  cin: string;
+  nom?: string;
+  telephone: string;
+  type: string;
+  address: string;
+  created_at?: Date;
+  last_login?: Date;
+}
+
+export interface CreatePatientData {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  cin: string;
+  phone: string;
+  type: string;
+  address: string;
+}
+
+export interface PatientResponse {
+  patients: Patient[];
+  total: number;
+}
+
+export interface PatientProfileResponse {
+  last_login: Date;
+  created_at: Date;
+  patient?: Patient;
+}
+
+export interface Consultation {
+  consultation_id: string;
+  date: string;
+  motif: string;
+  diagnostic: string;
+  traitement: string;
+  notes: string;
+  status: string;
+  created_at: string;
+  doctor: {
+    id_doctor: string;
     name: string;
-    relationship: string;
-    phoneNumber: string;
+    email: string;
+    phone: string;
+    speciality: string;
+    address: string;
   };
 }
 
-export interface MedicalRecord {
-  _id: string;
-  patientId: string;
-  date: Date;
-  type: string;
-  description: string;
-  attachments?: string[];
-  doctorId: string;
+export interface ConsultationHistoryResponse {
+  consultations: Consultation[];
+  total: number;
+}
+
+export interface UpcomingConsultationsResponse {
+  upcoming_consultations: Consultation[];
+  total: number;
 }
 
 @Injectable({
@@ -47,60 +78,66 @@ export class PatientService {
 
   constructor(private http: HttpClient) { }
 
-  // Récupérer tous les patients
-  getPatients(): Observable<Patient[]> {
-    return this.http.get<Patient[]>(this.apiUrl);
+  // ======================== GESTION DES PATIENTS (ADMIN SEULEMENT) ========================
+
+  // Récupérer tous les patients (Admin seulement)
+  getAllPatients(): Observable<PatientResponse> {
+    return this.http.get<PatientResponse>(`${this.apiUrl}/patients`);
   }
 
-  // Récupérer un patient par son ID
-  getPatient(id: string): Observable<Patient> {
-    return this.http.get<Patient>(`${this.apiUrl}/${id}`);
+  // Créer un nouveau patient (Admin seulement)
+  createPatient(patientData: CreatePatientData): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/create`, patientData);
   }
 
-  // Créer un nouveau patient
-  createPatient(patientData: Partial<Patient>): Observable<Patient> {
-    return this.http.post<Patient>(this.apiUrl, patientData);
+  // Récupérer un patient par son user_id (Admin seulement)
+  getPatientById(userId: string): Observable<PatientProfileResponse> {
+    return this.http.get<PatientProfileResponse>(`${this.apiUrl}/patientById/${userId}`);
   }
 
-  // Mettre à jour un patient
-  updatePatient(id: string, patientData: Partial<Patient>): Observable<Patient> {
-    return this.http.put<Patient>(`${this.apiUrl}/${id}`, patientData);
+  // Mettre à jour un patient (Admin seulement)
+  updatePatient(userId: string, patientData: Partial<Patient>): Observable<any> {
+    return this.http.put<any>(`${this.apiUrl}/update/${userId}`, patientData);
   }
 
-  // Supprimer un patient
-  deletePatient(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  // Supprimer un patient (Admin seulement)
+  deletePatient(userId: string): Observable<any> {
+    return this.http.delete<any>(`${this.apiUrl}/delete/${userId}`);
   }
 
-  // Récupérer l'historique médical d'un patient
-  getMedicalHistory(patientId: string): Observable<MedicalRecord[]> {
-    return this.http.get<MedicalRecord[]>(`${this.apiUrl}/${patientId}/medical-history`);
+  // ======================== PROFILE DU PATIENT CONNECTÉ ========================
+
+  // Récupérer le profil du patient connecté
+  getPatientProfile(): Observable<PatientProfileResponse> {
+    return this.http.get<PatientProfileResponse>(`${this.apiUrl}/profile`);
   }
 
-  // Ajouter une entrée dans l'historique médical
-  addMedicalRecord(patientId: string, record: Partial<MedicalRecord>): Observable<MedicalRecord> {
-    return this.http.post<MedicalRecord>(`${this.apiUrl}/${patientId}/medical-history`, record);
+  // ======================== CONSULTATIONS DU PATIENT ========================
+
+  // Récupérer l'historique des consultations du patient connecté
+  getConsultationHistory(): Observable<ConsultationHistoryResponse> {
+    return this.http.get<ConsultationHistoryResponse>(`${this.apiUrl}/consultations/history`);
   }
 
-  // Récupérer les rendez-vous d'un patient
-  getPatientAppointments(patientId: string): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/${patientId}/appointments`);
+  // Récupérer les consultations à venir du patient connecté
+  getUpcomingConsultations(): Observable<UpcomingConsultationsResponse> {
+    return this.http.get<UpcomingConsultationsResponse>(`${this.apiUrl}/consultations/upcoming`);
   }
 
-  // Rechercher des patients
-  searchPatients(query: string): Observable<Patient[]> {
-    return this.http.get<Patient[]>(`${this.apiUrl}/search?q=${query}`);
+  // ======================== MÉTHODES UTILITAIRES ========================
+
+  // Rechercher des patients (pour Admin - peut être implémenté côté backend)
+  searchPatients(query: string): Observable<PatientResponse> {
+    return this.http.get<PatientResponse>(`${this.apiUrl}/patients?search=${encodeURIComponent(query)}`);
   }
 
-  // Récupérer les statistiques d'un patient
-  getPatientStats(patientId: string): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}/${patientId}/stats`);
-  }
-
-  // Télécharger le dossier médical complet
-  downloadMedicalFile(patientId: string): Observable<Blob> {
-    return this.http.get(`${this.apiUrl}/${patientId}/medical-file`, {
-      responseType: 'blob'
+  // Vérifier si l'utilisateur connecté est un patient
+  isCurrentUserPatient(): Observable<boolean> {
+    return new Observable(observer => {
+      this.getPatientProfile().subscribe({
+        next: (response) => observer.next(!!response.patient),
+        error: () => observer.next(false)
+      });
     });
   }
-} 
+}

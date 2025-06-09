@@ -38,7 +38,16 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-
+def doctor_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        current_user_id = get_jwt_identity()
+        current_user_id = ObjectId(current_user_id)
+        user = db.users.find_one({'_id': current_user_id})
+        if not user or user['role'] != 'doctor':
+            return jsonify({'error': 'Doctor access required'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
 
 # ======================== GESTION DES PATIENTS (ADMIN SEULEMENT) ========================
 
@@ -178,6 +187,36 @@ def get_patient_by_id(user_id):
 
     except Exception as e:
         return jsonify({"error": "Une erreur est survenue lors de la récupération du patient"}), 500
+
+
+@patient_bp.route('/doctor/patients/<user_id>', methods=['GET'])
+@jwt_required()
+@doctor_required
+def get_patient_details_by_id(user_id):
+    """Récupérer les détails d'un patient par son user_id (Accès docteur requis)"""
+    try:
+
+        user = User.get_by_id(user_id)
+        if not user or user.role != 'patient':
+            return jsonify({"error": "patient non trouvé"}), 404
+
+        # Récupérer les données du docteur
+        patient_data = db.patients.find_one({'user_id': user_id})
+
+        response_data = {
+            'last_login': user.last_login,
+            'created_at': user.created_at
+        }
+
+        if patient_data:
+            patient_data['_id'] = str(patient_data['_id'])
+            response_data['patient'] = patient_data
+
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        return jsonify({"error": "Une erreur est survenue lors de la récupération du patient"}), 500
+
 
 @patient_bp.route('/update/<user_id>', methods=['PUT'])
 @jwt_required()
