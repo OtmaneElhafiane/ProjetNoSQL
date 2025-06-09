@@ -34,15 +34,7 @@
 
       <!-- Menu Patient -->
       <ul class="navbar-nav" *ngIf="hasRole('patient') | async">
-        <li class="nav-item">
-          <a class="nav-link" routerLink="/patient-dashboard" routerLinkActive="active">Tableau de bord</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" routerLink="/patient-dashboard/appointments" routerLinkActive="active">Mes Rendez-vous</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" routerLink="/patient-dashboard/profile" routerLinkActive="active">Mon Profil</a>
-        </li>
+
       </ul>
 
       <!-- Menu utilisateur -->
@@ -63,4 +55,4 @@
 <!-- Main Content -->
 <div class="container mt-4">
   <router-outlet></router-outlet>
-</div> 
+</div>

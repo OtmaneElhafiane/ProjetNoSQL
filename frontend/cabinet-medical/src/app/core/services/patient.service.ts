@@ -70,6 +70,27 @@ export interface UpcomingConsultationsResponse {
   total: number;
 }
 
+
+export interface ConsultationFilter {
+  page?: number;
+  limit?: number;
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+  sortBy?: string;
+  sortDirection?: 'asc' | 'desc';
+}
+
+// Interface pour la réponse paginée
+export interface PaginatedConsultationResponse {
+  consultations: Consultation[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -138,6 +159,9 @@ export class PatientService {
   searchPatients(query: string): Observable<PatientResponse> {
     return this.http.get<PatientResponse>(`${this.apiUrl}/patients?search=${encodeURIComponent(query)}`);
   }
+
+
+
 
   // Vérifier si l'utilisateur connecté est un patient
   isCurrentUserPatient(): Observable<boolean> {

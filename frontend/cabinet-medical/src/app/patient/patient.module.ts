@@ -5,6 +5,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { PatientDashboardComponent } from './patient-dashboard/patient-dashboard.component';
 import { PatientListComponent } from './patient-list/patient-list.component';
 import { PatientDetailComponent } from './patient-detail/patient-detail.component';
+import {ConsultationHistoryComponent} from "./consultation-history/consultation-history.component";
 
 const routes: Routes = [
   {
@@ -12,20 +13,15 @@ const routes: Routes = [
     component: PatientDashboardComponent
   },
   {
-    path: 'list',
-    component: PatientListComponent
+    path: 'consultations',
+    component: ConsultationHistoryComponent
   },
-  {
-    path: ':id',
-    component: PatientDetailComponent
-  }
 ];
 
 @NgModule({
   declarations: [
     PatientDashboardComponent,
-    PatientListComponent,
-    PatientDetailComponent
+    ConsultationHistoryComponent
   ],
   imports: [
     CommonModule,
