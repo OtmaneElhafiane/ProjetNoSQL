@@ -22,6 +22,7 @@ def doctor_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         current_user_id = get_jwt_identity()
+        current_user_id = ObjectId(current_user_id)
         user = db.users.find_one({'_id': current_user_id})
         if not user or user['role'] != 'doctor':
             return jsonify({'error': 'Doctor access required'}), 403
@@ -121,7 +122,6 @@ def create_doctor():
         
         return jsonify({
             "message": "Docteur créé avec succès",
-            "user": user.to_json(),
             "doctor": doctor_data
         }), 201
         
@@ -140,20 +140,22 @@ def get_doctor_by_id(user_id):
         user = User.get_by_id(user_id)
         if not user or user.role != 'doctor':
             return jsonify({"error": "Docteur non trouvé"}), 404
-        
+
         # Récupérer les données du docteur
         doctor_data = db.doctors.find_one({'user_id': user_id})
-        
+
         response_data = {
-            'user': user.to_json()
+
+            'last_login': user.last_login,
+            'created_at': user.created_at
         }
-        
+
         if doctor_data:
             doctor_data['_id'] = str(doctor_data['_id'])
             response_data['doctor'] = doctor_data
-        
+
         return jsonify(response_data), 200
-        
+
     except Exception as e:
         return jsonify({"error": "Une erreur est survenue lors de la récupération du docteur"}), 500
 
@@ -214,10 +216,10 @@ def update_doctor(user_id):
             if updated_doctor:
                 updated_doctor['_id'] = str(updated_doctor['_id'])
                 sync_service.sync_doctor(updated_doctor)
-        
+        print(updated_doctor)
         return jsonify({
             "message": "Docteur mis à jour avec succès",
-            "user": user.to_json()
+            "user": updated_doctor
         }), 200
         
     except Exception as e:
@@ -307,7 +309,8 @@ def get_doctor_profile():
         doctor_data = db.doctors.find_one({'user_id': current_user_id})
         
         response_data = {
-            'user': user.to_json()
+            'last_login': user.last_login,
+            'created_at': user.created_at
         }
         
         if doctor_data:

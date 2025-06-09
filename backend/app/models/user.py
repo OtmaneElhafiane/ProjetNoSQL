@@ -28,6 +28,13 @@ class User:
     @staticmethod
     def get_by_id(user_id):
         """Récupérer un utilisateur par son ID"""
+
+        if isinstance(user_id, str):
+            try:
+                user_id = ObjectId(user_id)
+            except:
+                pass
+
         user_data = get_db()[User.collection_name].find_one({'_id': user_id})
         return User(**user_data) if user_data else None
 

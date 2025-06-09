@@ -22,6 +22,7 @@ def patient_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         current_user_id = get_jwt_identity()
+        current_user_id = ObjectId(current_user_id)
         user = db.users.find_one({'_id': current_user_id})
         if not user or user['role'] != 'patient':
             return jsonify({'error': 'Patient access required'}), 403
@@ -39,50 +40,58 @@ def admin_required(f):
 
 
 
-# ======================== GESTION DES DOCTEURS (ADMIN SEULEMENT) ========================
+# ======================== GESTION DES PATIENTS (ADMIN SEULEMENT) ========================
 
 @patient_bp.route('/patients', methods=['GET'])
 @jwt_required()
 @admin_required
 def get_all_patients():
-    """Récupérer tous les docteurs (Admin seulement)"""
+    """Récupérer tous les patients (Admin seulement)"""
     try:
-        # Récupérer tous les utilisateurs avec le rôle patient
+        print("📥 Début de récupération des utilisateurs patients")
         users = list(db.users.find({'role': 'patient'}))
+        print(f"📋 {len(users)} utilisateurs avec rôle 'patient' trouvés")
+
         patients_list = []
 
         for user in users:
-            # Récupérer les données supplémentaires du docteur
+            print(f"🔍 Traitement de l'utilisateur : {user.get('email', 'inconnu')} (ID: {user['_id']})")
+
+            # Récupérer les données du patient
             patient_data = db.patients.find_one({'user_id': str(user['_id'])})
+            print(f"  → Données patient trouvées : {bool(patient_data)}")
 
             patient_info = {
                 'user_id': str(user['_id']),
                 'email': user['email'],
                 'first_name': user['first_name'],
                 'last_name': user['last_name'],
-                'created_at': user['created_at'].isoformat() if user['created_at'] else None,
+                'created_at': user['created_at'].isoformat() if user.get('created_at') else None,
                 'last_login': user['last_login'].isoformat() if user.get('last_login') else None
             }
 
             if patient_data:
                 patient_info.update({
                     'patient_id': str(patient_data['_id']),
-                    'cin': patient_data['cin'],
-                    'nom': patient_data['nom'],
-                    'email': patient_data['email'],
-                    'telephone': patient_data['telephone'],
-                    'type': patient_data['type'],
+                    'cin': patient_data.get('cin'),
+                    'nom': patient_data.get('nom'),
+                    'email': patient_data.get('email'),
+                    'telephone': patient_data.get('telephone'),
+                    'type': patient_data.get('type'),
+                    'address': patient_data.get('address'),
                 })
 
             patients_list.append(patient_info)
 
+        print("✅ Tous les patients traités avec succès")
         return jsonify({
             'patients': patients_list,
             'total': len(patients_list)
         }), 200
 
     except Exception as e:
-        return jsonify({'error': f'Erreur lors de la récupération des docteurs: {str(e)}'}), 500
+        print(f"❌ Erreur lors de la récupération des patients : {str(e)}")
+        return jsonify({'error': f'Erreur lors de la récupération des patients: {str(e)}'}), 500
 
 @patient_bp.route('/create', methods=['POST'])
 @jwt_required()
@@ -90,10 +99,12 @@ def get_all_patients():
 def create_patient():
     """Créer un nouveau patient (Admin seulement)"""
     try:
+        print("🔁 Requête reçue pour création de patient")
         data = request.get_json()
+        print(f"📨 Données reçues : {data}")
 
         # Vérifier les champs requis
-        required_fields = ["email", "password", "first_name", "last_name", "cin", "telephone", "type"]
+        required_fields = ["email", "password", "first_name", "last_name", "cin", "phone", "type", "address"]
         if not all(field in data for field in required_fields):
             return jsonify({"error": "Tous les champs requis doivent être fournis"}), 400
 
@@ -105,32 +116,38 @@ def create_patient():
             first_name=data["first_name"],
             last_name=data["last_name"]
         )
+        print(f"✅ Utilisateur créé : {user.email} (ID: {user._id})")
 
         # Créer le document patient
         patient_data = {
             "user_id": str(user._id),
-            "nom": f"{data['first_name']} {data['last_name']}",
+            "name": f"{data['first_name']} {data['last_name']}",
             "cin": data["cin"],
             "email": data["email"],
-            "telephone": data["telephone", ""],
-            "type": data["type"]
+            "phone": data.get("phone", ""),
+            "type": data["type"],
+            "address": data["address"]
         }
 
         result = db.patients.insert_one(patient_data)
         patient_data["_id"] = str(result.inserted_id)
 
-        # Synchroniser avec Neo4j (si nécessaire)
+        print(f"📝 Patient inséré dans MongoDB avec ID : {patient_data['_id']}")
+
+        # Synchroniser avec Neo4j
         sync_service.sync_patient(patient_data)
+        print("🔄 Synchronisation avec Neo4j terminée")
 
         return jsonify({
             "message": "Patient créé avec succès",
-            "user": user.to_json(),
             "patient": patient_data
         }), 201
 
     except ValueError as e:
+        print(f"❌ Erreur de validation : {str(e)}")
         return jsonify({"error": str(e)}), 400
     except Exception as e:
+        print(f"💥 Erreur serveur : {str(e)}")
         return jsonify({"error": "Une erreur est survenue lors de la création du patient"}), 500
 
 
@@ -140,16 +157,17 @@ def create_patient():
 def get_patient_by_id(user_id):
     """Récupérer un docteur par son user_id (Admin seulement)"""
     try:
-        # Récupérer l'utilisateur
+
         user = User.get_by_id(user_id)
         if not user or user.role != 'patient':
-            return jsonify({"error": "Docteur non trouvé"}), 404
+            return jsonify({"error": "patient non trouvé"}), 404
 
         # Récupérer les données du docteur
         patient_data = db.patients.find_one({'user_id': user_id})
 
         response_data = {
-            'user': user.to_json()
+            'last_login': user.last_login,
+            'created_at': user.created_at
         }
 
         if patient_data:
@@ -159,7 +177,7 @@ def get_patient_by_id(user_id):
         return jsonify(response_data), 200
 
     except Exception as e:
-        return jsonify({"error": "Une erreur est survenue lors de la récupération du docteur"}), 500
+        return jsonify({"error": "Une erreur est survenue lors de la récupération du patient"}), 500
 
 @patient_bp.route('/update/<user_id>', methods=['PUT'])
 @jwt_required()
@@ -200,6 +218,9 @@ def update_patient(user_id):
         if 'type' in data:
             patient_updates['type'] = data['type']
 
+        if 'address' in data:
+            patient_updates['address'] = data['address']
+
         # Mettre à jour le nom si first_name ou last_name ont changé
         if 'first_name' in data or 'last_name' in data:
             patient_updates['name'] = f"{user.first_name} {user.last_name}"
@@ -221,11 +242,11 @@ def update_patient(user_id):
 
         return jsonify({
             "message": "Docteur mis à jour avec succès",
-            "user": user.to_json()
+            "user": updated_patient
         }), 200
 
     except Exception as e:
-        return jsonify({"error": "Une erreur est survenue lors de la mise à jour du docteur"}), 500
+        return jsonify({"error": "Une erreur est survenue lors de la mise à jour du patient"}), 500
 
 @patient_bp.route('/delete/<user_id>', methods=['DELETE'])
 @jwt_required()
@@ -236,7 +257,7 @@ def delete_patient(user_id):
         # Récupérer l'utilisateur
         user = User.get_by_id(user_id)
         if not user or user.role != 'patient':
-            return jsonify({"error": "Docteur non trouvé"}), 404
+            return jsonify({"error": "Patient non trouvé"}), 404
 
         # Vérifier s'il y a des consultations liées
         consultations_count = db.consultations.count_documents({'patient_id': {'$exists': True}})
@@ -261,10 +282,10 @@ def delete_patient(user_id):
         except Exception as neo4j_error:
             print(f"Erreur Neo4j lors de la suppression: {neo4j_error}")
 
-        return jsonify({"message": "Docteur supprimé avec succès"}), 200
+        return jsonify({"message": "Patient supprimé avec succès"}), 200
 
     except Exception as e:
-        return jsonify({"error": "Une erreur est survenue lors de la suppression du docteur"}), 500
+        return jsonify({"error": "Une erreur est survenue lors de la suppression du patient"}), 500
 
 # ======================== PROFILE DU PATIENT CONNECTÉ ========================
 
@@ -279,7 +300,8 @@ def get_patient_profile():
         patient_data = db.patients.find_one({'user_id': current_user_id})
 
         response_data = {
-            'user': user.to_json()
+            'last_login': user.last_login,
+            'created_at': user.created_at
         }
 
         if patient_data:
@@ -348,7 +370,9 @@ def get_consultation_history():
                             'name': doctor['name'],
                             'email': doctor['email'],
                             'phone': doctor['phone'],
-                            'speciality': doctor['speciality'],                        }
+                            'speciality': doctor['speciality'],
+                            'address': doctor['address']
+                        }
                     }
                     consultations_history.append(consultation_data)
 
@@ -382,7 +406,7 @@ def get_upcoming_consultations():
                 MATCH (p:Patient)-[r:CONSULTED_BY]->(d:Doctor)
                 WHERE p.mongo_id = $patient_mongo_id
                 AND datetime(r.date) >= datetime($today)
-                AND (r.status IS NULL) AND (r.status <> 'cancelled') AND (r.status <> 'completed')
+                AND NOT r.status IN ['cancelled', 'completed']
                 RETURN d.mongo_id as doctor_mongo_id, 
                        r.consultation_id as consultation_id,
                        r.date as date,
@@ -418,7 +442,8 @@ def get_upcoming_consultations():
                             'name': doctor['name'],
                             'email': doctor['email'],
                             'phone': doctor['phone'],
-                            'speciality': doctor['speciality']
+                            'speciality': doctor['speciality'],
+                            'address': doctor['address']
 
                         }
                     }
