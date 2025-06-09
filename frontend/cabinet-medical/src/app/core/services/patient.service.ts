@@ -95,6 +95,14 @@ export class PatientService {
     return this.http.get<PatientProfileResponse>(`${this.apiUrl}/patientById/${userId}`);
   }
 
+
+  //Récupérer un patient par son user_id (Doctor seulement)
+  get_patient_details_by_id(userId: string): Observable<PatientProfileResponse> {
+    return this.http.get<PatientProfileResponse>(`${this.apiUrl}/doctor/patients/${userId}`);
+  }
+
+
+
   // Mettre à jour un patient (Admin seulement)
   updatePatient(userId: string, patientData: Partial<Patient>): Observable<any> {
     return this.http.put<any>(`${this.apiUrl}/update/${userId}`, patientData);
