@@ -11,8 +11,8 @@ export interface Patient {
   last_name: string;
   patient_id?: string;
   cin: string;
-  nom?: string;
-  telephone: string;
+  name?: string;
+  phone: string;
   type: string;
   address: string;
   created_at?: Date;

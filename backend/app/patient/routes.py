@@ -367,7 +367,7 @@ def get_consultation_history():
         if not patient:
             return jsonify({'error': 'Docteur non trouvé'}), 404
 
-        patient_mongo_id = str(patient['_id'])
+        patient_mongo_id = str(patient['user_id'])
 
         print(patient_mongo_id)
 
@@ -410,7 +410,6 @@ def get_consultation_history():
                             'email': doctor['email'],
                             'phone': doctor['phone'],
                             'speciality': doctor['speciality'],
-                            'address': doctor['address']
                         }
                     }
                     consultations_history.append(consultation_data)
@@ -436,15 +435,16 @@ def get_upcoming_consultations():
         if not patient:
             return jsonify({'error': 'Docteur non trouvé'}), 404
 
-        patient_mongo_id = str(patient['_id'])
-        today = datetime.now().date().isoformat()
+        patient_mongo_id = str(patient['user_id'])
+
+        print(patient_mongo_id)
 
         # Requête Neo4j pour les consultations à venir non annulées
         with neo4j_driver.session() as session:
             result = session.run("""
                 MATCH (p:Patient)-[r:CONSULTED_BY]->(d:Doctor)
                 WHERE p.mongo_id = $patient_mongo_id
-                AND datetime(r.date) >= datetime($today)
+                AND datetime(r.date) >= datetime()
                 AND NOT r.status IN ['cancelled', 'completed']
                 RETURN d.mongo_id as doctor_mongo_id, 
                        r.consultation_id as consultation_id,
@@ -457,13 +457,14 @@ def get_upcoming_consultations():
                        r.created_at as created_at
                 ORDER BY r.date ASC
             """,
-                                 patient_mongo_id=patient_mongo_id,
-                                 today=today + "T00:00:00+00:00")
+                                 patient_mongo_id=patient_mongo_id)
+
 
             upcoming_consultations = []
 
             for record in result:
                 # Récupérer les informations du patient depuis MongoDB
+
                 doctor = db.doctors.find_one({'_id': ObjectId(record['doctor_mongo_id'])})
 
                 if doctor:
@@ -482,7 +483,6 @@ def get_upcoming_consultations():
                             'email': doctor['email'],
                             'phone': doctor['phone'],
                             'speciality': doctor['speciality'],
-                            'address': doctor['address']
 
                         }
                     }
