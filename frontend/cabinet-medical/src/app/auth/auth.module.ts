@@ -1,28 +1,24 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule, Routes } from '@angular/router';
+import { RouterModule } from '@angular/router';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { HTTP_INTERCEPTORS } from '@angular/common/http';
+import { HttpClientModule } from '@angular/common/http';
+import { BrowserModule } from '@angular/platform-browser';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 
 import { LoginComponent } from './login/login.component';
 import { RegisterComponent } from './register/register.component';
-import { AuthInterceptor } from './auth.interceptor';
+import { AuthService } from './auth.service';
+import { AuthGuard } from '../guards/auth.guard';
 
-const routes: Routes = [
-  {
-    path: '',
-    redirectTo: 'login',
-    pathMatch: 'full'
-  },
+const routes = [
   {
     path: 'login',
-    component: LoginComponent,
-    data: { title: 'Connexion' }
+    component: LoginComponent
   },
   {
     path: 'register',
-    component: RegisterComponent,
-    data: { title: 'Inscription' }
+    component: RegisterComponent
   }
 ];
 
@@ -35,14 +31,16 @@ const routes: Routes = [
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
+    HttpClientModule,
     RouterModule.forChild(routes)
   ],
   providers: [
-    {
-      provide: HTTP_INTERCEPTORS,
-      useClass: AuthInterceptor,
-      multi: true
-    }
+    AuthService,
+    AuthGuard
+  ],
+  exports: [
+    LoginComponent,
+    RegisterComponent
   ]
 })
 export class AuthModule { }

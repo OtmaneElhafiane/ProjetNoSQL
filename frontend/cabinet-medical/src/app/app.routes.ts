@@ -1,6 +1,5 @@
 import { Routes } from '@angular/router';
-import { AuthGuard } from './auth/auth.guard';
-import { AdminGuard, DoctorGuard, PatientGuard } from './auth/role.guard';
+import { AuthGuard } from './guards/auth.guard';
 import { TestValidateComponent } from './test-validate/test-validate.component';
 
 export const routes: Routes = [
@@ -16,17 +15,17 @@ export const routes: Routes = [
   {
     path: 'admin',
     loadChildren: () => import('./admin/admin.module').then(m => m.AdminModule),
-    canActivate: [AdminGuard]
+    canActivate: [AuthGuard]
   },
   {
     path: 'doctor',
     loadChildren: () => import('./doctor/doctor.module').then(m => m.DoctorModule),
-    canActivate: [DoctorGuard]
+    canActivate: [AuthGuard]
   },
   {
     path: 'patient',
     loadChildren: () => import('./patient/patient.module').then(m => m.PatientModule),
-    canActivate: [PatientGuard]
+    canActivate: [AuthGuard]
   },
   {
     path: 'test-validate',

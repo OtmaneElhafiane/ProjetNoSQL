@@ -2,12 +2,17 @@ import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Routes } from '@angular/router';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { DoctorDashboardComponent } from './doctor-dashboard/doctor-dashboard.component';
 import { DoctorListComponent } from './doctor-list/doctor-list.component';
 import { DoctorDetailComponent } from './doctor-detail/doctor-detail.component';
 
 const routes: Routes = [
   {
     path: '',
+    component: DoctorDashboardComponent
+  },
+  {
+    path: 'list',
     component: DoctorListComponent
   },
   {
@@ -18,6 +23,7 @@ const routes: Routes = [
 
 @NgModule({
   declarations: [
+    DoctorDashboardComponent,
     DoctorListComponent,
     DoctorDetailComponent
   ],

@@ -140,7 +140,7 @@ export class DoctorDashboardComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.authService.currentUser$.subscribe(user => {
+    this.authService.user$.subscribe(user => {
       this.currentUser = user;
       if (user) {
         // TODO: Charger les rendez-vous, consultations et statistiques du médecin
