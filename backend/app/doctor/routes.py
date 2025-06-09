@@ -509,7 +509,7 @@ def update_consultation_status(consultation_id):
     except Exception as e:
         return jsonify({'error': f'Erreur lors de la mise à jour du statut: {str(e)}'}), 500
 
-doctor_bp.route('/consultations/upcoming', methods=['GET'])
+@doctor_bp.route('/consultations/upcoming', methods=['GET'])
 @jwt_required()
 @doctor_required
 def get_upcoming_consultations():

@@ -3,44 +3,142 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
-export interface Doctor {
+// Interface pour les données utilisateur de base
+export interface User {
   _id: string;
-  userId: string;
-  firstName: string;
-  lastName: string;
   email: string;
-  speciality: string;
-  licenseNumber: string;
-  phoneNumber: string;
-  availability: {
-    day: string;
-    startTime: string;
-    endTime: string;
-  }[];
-  education: {
-    degree: string;
-    institution: string;
-    year: number;
-  }[];
-  experience: {
-    position: string;
-    institution: string;
-    startYear: number;
-    endYear?: number;
-  }[];
-  languages: string[];
-  consultationFee?: number;
+  first_name: string;
+  last_name: string;
+  role: string;
+  created_at: string;
+  last_login?: string;
 }
 
-export interface DoctorSchedule {
-  doctorId: string;
+// Interface pour les données du docteur
+export interface Doctor {
+  _id: string;
+  user_id: string;
+  name: string;
+  email: string;
+  phone: string;
+  speciality: string;
+  schedule: {
+    [key: string]: {
+      start_time: string;
+      end_time: string;
+      is_available: boolean;
+    }[];
+  };
+}
+
+// Interface pour les informations complètes du docteur (user + doctor)
+export interface DoctorInfo {
+  user_id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  created_at: string;
+  last_login?: string;
+  doctor_id?: string;
+  name?: string;
+  phone?: string;
+  speciality?: string;
+  schedule?: {
+    [key: string]: {
+      start_time: string;
+      end_time: string;
+    }[];
+  };
+}
+
+// Interface pour la création d'un docteur
+export interface CreateDoctorRequest {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  speciality: string;
+  phone?: string;
+  schedule?: {
+    [key: string]: {
+      start_time: string;
+      end_time: string;
+    }[];
+  };
+}
+
+// Interface pour la mise à jour d'un docteur
+export interface UpdateDoctorRequest {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  password?: string;
+  phone?: string;
+  speciality?: string;
+  schedule?: {
+    [key: string]: {
+      start_time: string;
+      end_time: string;
+      is_available: boolean;
+    }[];
+  };
+}
+
+// Interface pour les consultations
+export interface Patient {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  birth_date: string;
+  address: string;
+}
+
+export interface Consultation {
+  consultation_id: string;
   date: string;
-  slots: {
-    startTime: string;
-    endTime: string;
-    isAvailable: boolean;
-    appointmentId?: string;
-  }[];
+  motif: string;
+  diagnostic: string;
+  traitement: string;
+  notes: string;
+  status: 'pending' | 'completed' | 'cancelled' | 'rescheduled';
+  created_at: string;
+  patient: Patient;
+}
+
+// Interface pour les réponses API
+export interface DoctorsListResponse {
+  doctors: DoctorInfo[];
+  total: number;
+}
+
+export interface DoctorResponse {
+  last_login?: string;
+  created_at: string;
+  doctor?: Doctor;
+}
+
+export interface ConsultationHistoryResponse {
+  consultations: Consultation[];
+  total: number;
+}
+
+export interface PatientHistoryResponse {
+  patient: Patient | null;
+  consultations: Omit<Consultation, 'patient'>[];
+  total: number;
+}
+
+export interface UpcomingConsultationsResponse {
+  upcoming_consultations: Consultation[];
+  total: number;
+}
+
+export interface ApiResponse<T = any> {
+  message?: string;
+  error?: string;
+  doctor?: T;
+  user?: T;
 }
 
 @Injectable({
@@ -49,71 +147,160 @@ export interface DoctorSchedule {
 export class DoctorService {
   private apiUrl = `${environment.apiUrl}/doctors`;
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient) {}
 
-  // Récupérer tous les médecins
-  getDoctors(): Observable<Doctor[]> {
-    return this.http.get<Doctor[]>(this.apiUrl);
+  // ======================== GESTION DES DOCTEURS (ADMIN SEULEMENT) ========================
+
+  /**
+   * Récupérer tous les docteurs (Admin seulement)
+   */
+  getAllDoctors(): Observable<DoctorsListResponse> {
+    return this.http.get<DoctorsListResponse>(`${this.apiUrl}/doctors`);
   }
 
-  // Récupérer un médecin par son ID
-  getDoctor(id: string): Observable<Doctor> {
-    return this.http.get<Doctor>(`${this.apiUrl}/${id}`);
+  /**
+   * Créer un nouveau docteur (Admin seulement)
+   */
+  createDoctor(doctorData: CreateDoctorRequest): Observable<ApiResponse<Doctor>> {
+    return this.http.post<ApiResponse<Doctor>>(`${this.apiUrl}/create`, doctorData);
   }
 
-  // Créer un nouveau médecin
-  createDoctor(doctorData: Partial<Doctor>): Observable<Doctor> {
-    return this.http.post<Doctor>(this.apiUrl, doctorData);
+  /**
+   * Récupérer un docteur par son user_id (Admin seulement)
+   */
+  getDoctorById(userId: string): Observable<DoctorResponse> {
+    return this.http.get<DoctorResponse>(`${this.apiUrl}/doctorById/${userId}`);
   }
 
-  // Mettre à jour un médecin
-  updateDoctor(id: string, doctorData: Partial<Doctor>): Observable<Doctor> {
-    return this.http.put<Doctor>(`${this.apiUrl}/${id}`, doctorData);
+  /**
+   * Mettre à jour un docteur (Admin seulement)
+   */
+  updateDoctor(userId: string, doctorData: UpdateDoctorRequest): Observable<ApiResponse<Doctor>> {
+    return this.http.put<ApiResponse<Doctor>>(`${this.apiUrl}/update/${userId}`, doctorData);
   }
 
-  // Supprimer un médecin
-  deleteDoctor(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  /**
+   * Supprimer un docteur (Admin seulement)
+   */
+  deleteDoctor(userId: string): Observable<ApiResponse> {
+    return this.http.delete<ApiResponse>(`${this.apiUrl}/delete/${userId}`);
   }
 
-  // Récupérer l'emploi du temps d'un médecin
-  getDoctorSchedule(doctorId: string, startDate: string, endDate: string): Observable<DoctorSchedule[]> {
-    return this.http.get<DoctorSchedule[]>(
-      `${this.apiUrl}/${doctorId}/schedule?startDate=${startDate}&endDate=${endDate}`
-    );
+  // ======================== PROFILE DU DOCTEUR CONNECTÉ ========================
+
+  /**
+   * Récupérer le profil du docteur connecté
+   */
+  getDoctorProfile(): Observable<DoctorResponse> {
+    return this.http.get<DoctorResponse>(`${this.apiUrl}/profile`);
   }
 
-  // Mettre à jour la disponibilité d'un médecin
-  updateAvailability(doctorId: string, availability: Doctor['availability']): Observable<Doctor> {
-    return this.http.put<Doctor>(`${this.apiUrl}/${doctorId}/availability`, { availability });
+  /**
+   * Mettre à jour le profil du docteur connecté
+   */
+  updateDoctorProfile(profileData: UpdateDoctorRequest): Observable<ApiResponse<User>> {
+    return this.http.put<ApiResponse<User>>(`${this.apiUrl}/profile`, profileData);
   }
 
-  // Récupérer les patients d'un médecin
-  getDoctorPatients(doctorId: string): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/${doctorId}/patients`);
+  // ======================== CONSULTATIONS ========================
+
+  /**
+   * Récupérer l'historique de toutes les consultations du docteur
+   */
+  getConsultationHistory(): Observable<ConsultationHistoryResponse> {
+    return this.http.get<ConsultationHistoryResponse>(`${this.apiUrl}/consultations/history`);
   }
 
-  // Récupérer les rendez-vous d'un médecin
-  getDoctorAppointments(doctorId: string, startDate?: string, endDate?: string): Observable<any[]> {
-    let url = `${this.apiUrl}/${doctorId}/appointments`;
-    if (startDate && endDate) {
-      url += `?startDate=${startDate}&endDate=${endDate}`;
+  /**
+   * Récupérer les consultations à venir
+   */
+  getUpcomingConsultations(): Observable<UpcomingConsultationsResponse> {
+    return this.http.get<UpcomingConsultationsResponse>(`${this.apiUrl}/consultations/upcoming`);
+  }
+
+  /**
+   * Mettre à jour le statut d'une consultation
+   */
+  updateConsultationStatus(consultationId: string, status: 'pending' | 'completed' | 'cancelled' | 'rescheduled'): Observable<ApiResponse> {
+    return this.http.put<ApiResponse>(`${this.apiUrl}/consultations/${consultationId}/status`, { status });
+  }
+
+  /**
+   * Mettre à jour une consultation complète
+   */
+  updateConsultation(consultationId: string, consultationData: {
+    symptoms: string;
+    diagnosis: string;
+    treatment: string;
+    notes?: string;
+  }): Observable<any> {
+    return this.http.put(`${this.apiUrl}/consultations/${consultationId}`, consultationData);
+  }
+
+  /**
+   * Récupérer l'historique des consultations d'un patient spécifique
+   */
+  getPatientHistory(patientId: string): Observable<PatientHistoryResponse> {
+    return this.http.get<PatientHistoryResponse>(`${this.apiUrl}/patients/${patientId}/history`);
+  }
+
+  // ======================== MÉTHODES UTILITAIRES ========================
+
+  /**
+   * Vérifier si l'utilisateur actuel est un docteur
+   */
+  isDoctor(): boolean {
+    // Cette méthode devrait être implémentée selon votre système d'authentification
+    const userRole = localStorage.getItem('userRole') || sessionStorage.getItem('userRole');
+    return userRole === 'doctor';
+  }
+
+  /**
+   * Vérifier si l'utilisateur actuel est un admin
+   */
+  isAdmin(): boolean {
+    // Cette méthode devrait être implémentée selon votre système d'authentification
+    const userRole = localStorage.getItem('userRole') || sessionStorage.getItem('userRole');
+    return userRole === 'admin';
+  }
+
+  /**
+   * Formater les horaires pour l'affichage
+   */
+  formatSchedule(schedule: Doctor['schedule']): string {
+    if (!schedule || Object.keys(schedule).length === 0) {
+      return 'Horaires non définis';
     }
-    return this.http.get<any[]>(url);
+
+    const dayNames: { [key: string]: string } = {
+      'monday': 'Lundi',
+      'tuesday': 'Mardi',
+      'wednesday': 'Mercredi',
+      'thursday': 'Jeudi',
+      'friday': 'Vendredi',
+      'saturday': 'Samedi',
+      'sunday': 'Dimanche'
+    };
+
+    return Object.entries(schedule)
+      .map(([day, slots]) => {
+        const dayName = dayNames[day.toLowerCase()] || day;
+        const availableSlots = slots.filter(slot => slot.is_available);
+        if (availableSlots.length === 0) {
+          return `${dayName}: Fermé`;
+        }
+        const timeRanges = availableSlots.map(slot => `${slot.start_time}-${slot.end_time}`);
+        return `${dayName}: ${timeRanges.join(', ')}`;
+      })
+      .join('\n');
   }
 
-  // Rechercher des médecins par spécialité
-  searchDoctorsBySpeciality(speciality: string): Observable<Doctor[]> {
-    return this.http.get<Doctor[]>(`${this.apiUrl}/search?speciality=${speciality}`);
+  /**
+   * Obtenir les créneaux disponibles pour un docteur à une date donnée
+   */
+  getAvailableSlots(doctorId: string, date: string): string[] {
+    // Cette méthode devrait être implémentée selon votre logique métier
+    // pour récupérer les créneaux disponibles depuis le backend
+    return [];
   }
-
-  // Récupérer les statistiques d'un médecin
-  getDoctorStats(doctorId: string): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}/${doctorId}/stats`);
-  }
-
-  // Mettre à jour les tarifs de consultation
-  updateConsultationFee(doctorId: string, fee: number): Observable<Doctor> {
-    return this.http.put<Doctor>(`${this.apiUrl}/${doctorId}/fee`, { consultationFee: fee });
-  }
-} 
+}
