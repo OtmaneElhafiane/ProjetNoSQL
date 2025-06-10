@@ -1,0 +1,126 @@
+<div class="container mt-4">
+  <div class="card shadow-sm">
+    <div class="card-header bg-primary text-white">
+      <h3 class="mb-0">
+        <i class="fas fa-user-plus me-2"></i>
+        Ajouter un Nouveau Patient
+      </h3>
+    </div>
+    <div class="card-body">
+      <form [formGroup]="patientForm" (ngSubmit)="onSubmit()">
+
+        <!-- Personal Information -->
+        <h5 class="mb-3 text-secondary">Informations Personnelles</h5>
+        <div class="row">
+          <!-- First Name -->
+          <div class="col-md-6 mb-3">
+            <label for="first_name" class="form-label">Prénom</label>
+            <input type="text" id="first_name" class="form-control" formControlName="first_name"
+                   [class.is-invalid]="patientForm.get('first_name')?.invalid && patientForm.get('first_name')?.touched">
+            <div *ngIf="patientForm.get('first_name')?.invalid && patientForm.get('first_name')?.touched" class="invalid-feedback">
+              Le prénom est requis.
+            </div>
+          </div>
+          <!-- Last Name -->
+          <div class="col-md-6 mb-3">
+            <label for="last_name" class="form-label">Nom de famille</label>
+            <input type="text" id="last_name" class="form-control" formControlName="last_name"
+                   [class.is-invalid]="patientForm.get('last_name')?.invalid && patientForm.get('last_name')?.touched">
+            <div *ngIf="patientForm.get('last_name')?.invalid && patientForm.get('last_name')?.touched" class="invalid-feedback">
+              Le nom de famille est requis.
+            </div>
+          </div>
+        </div>
+        <hr class="my-4">
+
+        <!-- Account Credentials -->
+        <h5 class="mb-3 text-secondary">Identifiants du Compte</h5>
+        <div class="row">
+          <!-- Email -->
+          <div class="col-md-6 mb-3">
+            <label for="email" class="form-label">Email</label>
+            <input type="email" id="email" class="form-control" formControlName="email"
+                   [class.is-invalid]="patientForm.get('email')?.invalid && patientForm.get('email')?.touched">
+            <div *ngIf="patientForm.get('email')?.touched" class="invalid-feedback">
+                <span *ngIf="patientForm.get('email')?.errors?.['required']">L'email est requis.</span>
+                <span *ngIf="patientForm.get('email')?.errors?.['email']">Veuillez entrer une adresse email valide.</span>
+            </div>
+          </div>
+          <!-- Password -->
+          <div class="col-md-6 mb-3">
+            <label for="password" class="form-label">Mot de passe</label>
+            <input type="password" id="password" class="form-control" formControlName="password"
+                   [class.is-invalid]="patientForm.get('password')?.invalid && patientForm.get('password')?.touched">
+            <div *ngIf="patientForm.get('password')?.touched" class="invalid-feedback">
+                <span *ngIf="patientForm.get('password')?.errors?.['required']">Le mot de passe est requis.</span>
+                <span *ngIf="patientForm.get('password')?.errors?.['minlength']">Le mot de passe doit contenir au moins 8 caractères.</span>
+            </div>
+          </div>
+        </div>
+        <hr class="my-4">
+
+        <!-- Contact & Administrative Info -->
+        <h5 class="mb-3 text-secondary">Informations Administratives</h5>
+        <div class="row">
+          <!-- CIN -->
+          <div class="col-md-6 mb-3">
+            <label for="cin" class="form-label">N° CIN</label>
+            <input type="text" id="cin" class="form-control" formControlName="cin"
+                   [class.is-invalid]="patientForm.get('cin')?.invalid && patientForm.get('cin')?.touched">
+            <div *ngIf="patientForm.get('cin')?.invalid && patientForm.get('cin')?.touched" class="invalid-feedback">
+              Le numéro CIN est requis.
+            </div>
+          </div>
+          <!-- Phone -->
+          <div class="col-md-6 mb-3">
+            <label for="phone" class="form-label">Téléphone</label>
+            <input type="tel" id="phone" class="form-control" formControlName="phone"
+                   [class.is-invalid]="patientForm.get('phone')?.invalid && patientForm.get('phone')?.touched">
+            <div *ngIf="patientForm.get('phone')?.touched" class="invalid-feedback">
+                <span *ngIf="patientForm.get('phone')?.errors?.['required']">Le téléphone est requis.</span>
+                <span *ngIf="patientForm.get('phone')?.errors?.['pattern']">Veuillez entrer un numéro de téléphone valide.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+            <!-- Address -->
+            <div class="col-md-6 mb-3">
+                <label for="address" class="form-label">Adresse</label>
+                <textarea id="address" class="form-control" formControlName="address" rows="3"
+                          [class.is-invalid]="patientForm.get('address')?.invalid && patientForm.get('address')?.touched"></textarea>
+                <div *ngIf="patientForm.get('address')?.invalid && patientForm.get('address')?.touched" class="invalid-feedback">
+                L'adresse est requise.
+                </div>
+            </div>
+            <!-- Patient Type -->
+            <div class="col-md-6 mb-3">
+                <label for="type" class="form-label">Type de Patient</label>
+                <select id="type" class="form-select" formControlName="type"
+                        [class.is-invalid]="patientForm.get('type')?.invalid && patientForm.get('type')?.touched">
+                    <option value="externe">Externe</option>
+                    <option value="interne">Interne</option>
+                </select>
+                <div *ngIf="patientForm.get('type')?.invalid && patientForm.get('type')?.touched" class="invalid-feedback">
+                    Le type est requis.
+                </div>
+            </div>
+        </div>
+
+        <!-- Global Error Message -->
+        <div *ngIf="errorMessage" class="alert alert-danger mt-3">
+          <strong>Erreur :</strong> {{ errorMessage }}
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-flex justify-content-end mt-4">
+          <button type="button" class="btn btn-secondary me-2" (click)="onCancel()">Annuler</button>
+          <button type="submit" class="btn btn-primary" [disabled]="patientForm.invalid || isLoading">
+            <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            {{ isLoading ? 'Création en cours...' : 'Créer le Patient' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

@@ -21,7 +21,9 @@ const routes: Routes = [
 @NgModule({
   declarations: [
     PatientDashboardComponent,
-    ConsultationHistoryComponent
+    ConsultationHistoryComponent,
+    PatientListComponent,
+    PatientDetailComponent
   ],
   imports: [
     CommonModule,

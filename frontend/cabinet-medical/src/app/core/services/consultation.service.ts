@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { MatDialog } from '@angular/material/dialog';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { ConsultationDialogComponent } from '../../shared/components/consultation-dialog/consultation-dialog.component';
+import { AddConsultationComponent } from '../../admin/components/add-consultation/add-consultation.component';
 
 export interface Prescription {
   medicament: string;
@@ -66,7 +66,7 @@ export interface ConsultationDialogData {
   providedIn: 'root'
 })
 export class ConsultationService {
-  private apiUrl = `${environment.apiUrl}/consultations`;
+  private apiUrl = `${environment.apiUrl}/consultations/`;
 
   constructor(
     private http: HttpClient,
@@ -149,7 +149,7 @@ export class ConsultationService {
   }
 
   openConsultationDialog(data: ConsultationDialogData): void {
-    this.dialog.open(ConsultationDialogComponent, {
+    this.dialog.open(AddConsultationComponent, {
       width: '600px',
       data
     });

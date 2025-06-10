@@ -1,0 +1,18 @@
+<div class="container mt-4">
+  <div class="card">
+    <div class="card-header"><h3>Historique du Patient (ID: {{ patientId }})</h3></div>
+    <div class="card-body">
+      <div *ngIf="isLoading" class="text-center py-5"><div class="spinner-border"></div></div>
+      <div *ngIf="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+      <div *ngIf="!isLoading && consultations.length === 0" class="alert alert-info">Aucune consultation trouvée.</div>
+      
+      <ul *ngIf="!isLoading && consultations.length > 0" class="list-group">
+        <li *ngFor="let consultation of consultations" class="list-group-item">
+          <p><strong>Date:</strong> {{ consultation.date | date:'medium' }}</p>
+          <p><strong>Médecin:</strong> {{ consultation.doctorName }}</p>
+          <p><strong>Motif:</strong> {{ consultation.motif }}</p>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>

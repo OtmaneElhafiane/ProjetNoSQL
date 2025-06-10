@@ -15,11 +15,16 @@ from ..admin.routes import admin_required
 from ..extensions import neo4j_driver
 from ..models.consultation import Consultation
 
+from flask_cors import CORS
+
+
 # Create a local database connection for PATIENT and DOCTOR data ONLY
 mongo_client = MongoClient(Config.MONGODB_URI)
 db = mongo_client.get_database("cabinet_medical")
 
-consultation_bp = Blueprint("consultation", __name__)
+consultation_bp = Blueprint("consultation", __name__, url_prefix="/api/consultations")
+
+CORS(consultation_bp, resources={r"/*": {"origins": "http://localhost:4200"}})
 
 
 @consultation_bp.route("/", methods=["POST"])

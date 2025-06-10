@@ -1,0 +1,74 @@
+<div class="container mt-4">
+  <div class="card shadow-sm">
+    <div class="card-header">
+      <h3 class="mb-0">Ajouter un Nouveau Médecin</h3>
+    </div>
+    <div class="card-body">
+      <form [formGroup]="doctorForm" (ngSubmit)="onSubmit()">
+        <div class="row">
+          <!-- First Name -->
+          <div class="col-md-6 mb-3">
+            <label for="first_name" class="form-label">Prénom</label>
+            <input type="text" id="first_name" class="form-control" formControlName="first_name">
+            <div *ngIf="doctorForm.get('first_name')?.invalid && doctorForm.get('first_name')?.touched" class="text-danger small mt-1">
+              Prénom est requis.
+            </div>
+          </div>
+          <!-- Last Name -->
+          <div class="col-md-6 mb-3">
+            <label for="last_name" class="form-label">Nom</label>
+            <input type="text" id="last_name" class="form-control" formControlName="last_name">
+             <div *ngIf="doctorForm.get('last_name')?.invalid && doctorForm.get('last_name')?.touched" class="text-danger small mt-1">
+              Nom est requis.
+            </div>
+          </div>
+        </div>
+        <!-- Email and Password -->
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" id="email" class="form-control" formControlName="email">
+                <div *ngIf="doctorForm.get('email')?.invalid && doctorForm.get('email')?.touched" class="text-danger small mt-1">
+                    Email valide est requis.
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="password" class="form-label">Mot de passe</label>
+                <input type="password" id="password" class="form-control" formControlName="password">
+                <div *ngIf="doctorForm.get('password')?.invalid && doctorForm.get('password')?.touched" class="text-danger small mt-1">
+                    Mot de passe est requis (8 caractères minimum).
+                </div>
+            </div>
+        </div>
+        <!-- Speciality and Phone -->
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="speciality" class="form-label">Spécialité</label>
+                <input type="text" id="speciality" class="form-control" formControlName="speciality">
+                <div *ngIf="doctorForm.get('speciality')?.invalid && doctorForm.get('speciality')?.touched" class="text-danger small mt-1">
+                    Spécialité est requise.
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="phone" class="form-label">Téléphone</label>
+                <input type="tel" id="phone" class="form-control" formControlName="phone">
+            </div>
+        </div>
+
+        <!-- Error Message -->
+        <div *ngIf="errorMessage" class="alert alert-danger mt-3">
+            {{ errorMessage }}
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="d-flex justify-content-end mt-4">
+          <button type="button" class="btn btn-secondary me-2" (click)="onCancel()">Annuler</button>
+          <button type="submit" class="btn btn-primary" [disabled]="doctorForm.invalid || isLoading">
+            <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            {{ isLoading ? 'Création...' : 'Créer le Médecin' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

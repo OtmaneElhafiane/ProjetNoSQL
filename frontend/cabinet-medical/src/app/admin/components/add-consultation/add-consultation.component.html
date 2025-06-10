@@ -1,0 +1,65 @@
+<div class="container mt-4">
+  <div class="card shadow-sm">
+    <div class="card-header">
+      <h3 class="mb-0">Ajouter une Nouvelle Consultation</h3>
+    </div>
+    <div class="card-body">
+      <form [formGroup]="consultationForm" (ngSubmit)="onSubmit()">
+        <div class="row">
+          <!-- Patient -->
+          <div class="col-md-6 mb-3">
+            <label for="patient_id" class="form-label">Patient</label>
+            <select id="patient_id" class="form-select" formControlName="patient_id">
+              <option [value]="" disabled>Sélectionner un patient</option>
+              <option *ngFor="let patient of patients" [value]="patient.user_id">
+                {{ patient.first_name }} {{ patient.last_name }} ({{ patient.cin }})
+              </option>
+            </select>
+          </div>
+          <!-- Doctor -->
+          <div class="col-md-6 mb-3">
+            <label for="doctor_id" class="form-label">Médecin</label>
+            <select id="doctor_id" class="form-select" formControlName="doctor_id">
+              <option [value]="" disabled>Sélectionner un médecin</option>
+              <option *ngFor="let doctor of doctors" [value]="doctor.user_id">
+                Dr. {{ doctor.first_name }} {{ doctor.last_name }} ({{ doctor.speciality }})
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <!-- Date -->
+          <div class="col-md-6 mb-3">
+            <label for="date" class="form-label">Date et Heure</label>
+            <input type="datetime-local" id="date" class="form-control" formControlName="date">
+          </div>
+          <!-- Motif -->
+          <div class="col-md-6 mb-3">
+            <label for="motif" class="form-label">Motif de la consultation</label>
+            <input type="text" id="motif" class="form-control" formControlName="motif">
+          </div>
+        </div>
+        
+        <div class="mb-3">
+          <label for="diagnostic" class="form-label">Diagnostic (Optionnel)</label>
+          <textarea id="diagnostic" class="form-control" formControlName="diagnostic" rows="3"></textarea>
+        </div>
+        
+        <div class="mb-3">
+          <label for="traitement" class="form-label">Traitement (Optionnel)</label>
+          <textarea id="traitement" class="form-control" formControlName="traitement" rows="3"></textarea>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-flex justify-content-end mt-4">
+          <button type="button" class="btn btn-secondary me-2" (click)="onCancel()">Annuler</button>
+          <button type="submit" class="btn btn-primary" [disabled]="consultationForm.invalid || isLoading">
+            <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2"></span>
+            {{ isLoading ? 'Création...' : 'Créer la Consultation' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

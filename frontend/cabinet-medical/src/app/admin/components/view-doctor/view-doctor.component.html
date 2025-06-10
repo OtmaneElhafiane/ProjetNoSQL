@@ -1,0 +1,25 @@
+<div class="container mt-4">
+  <div *ngIf="isLoading" class="text-center py-5">
+    <div class="spinner-border" role="status"></div>
+  </div>
+
+  <div *ngIf="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+
+  <div *ngIf="doctor && !isLoading" class="card">
+    <div class="card-header">
+      <h3>Détails du Dr. {{ doctor.first_name }} {{ doctor.last_name }}</h3>
+    </div>
+    <div class="card-body">
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item"><strong>ID Utilisateur:</strong> {{ doctor.user_id }}</li>
+        <li class="list-group-item"><strong>Prénom:</strong> {{ doctor.first_name }}</li>
+        <li class="list-group-item"><strong>Nom:</strong> {{ doctor.last_name }}</li>
+        <li class="list-group-item"><strong>Email:</strong> {{ doctor.email }}</li>
+        <li class="list-group-item"><strong>Téléphone:</strong> {{ doctor.phone || 'N/A' }}</li>
+        <li class="list-group-item"><strong>Spécialité:</strong> {{ doctor.speciality }}</li>
+        <li class="list-group-item"><strong>Date de création:</strong> {{ doctor.created_at | date:'fullDate' }}</li>
+        <li class="list-group-item"><strong>Dernière connexion:</strong> {{ doctor.last_login | date:'medium' }}</li>
+      </ul>
+    </div>
+  </div>
+</div>
