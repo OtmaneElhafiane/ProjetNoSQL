@@ -388,11 +388,15 @@ def get_consultation_history():
                 ORDER BY r.date DESC
             """, patient_mongo_id=patient_mongo_id)
 
+            print(result)
+
             consultations_history = []
 
             for record in result:
                 # Récupérer les informations du patient depuis MongoDB
-                doctor = db.doctors.find_one({'_id': ObjectId(record['doctor_mongo_id'])})
+                doctor = db.doctors.find_one({'user_id': record['doctor_mongo_id']})
+
+                print(doctor)
 
                 if doctor:
                     consultation_data = {
@@ -437,7 +441,6 @@ def get_upcoming_consultations():
 
         patient_mongo_id = str(patient['user_id'])
 
-        print(patient_mongo_id)
 
         # Requête Neo4j pour les consultations à venir non annulées
         with neo4j_driver.session() as session:
@@ -465,9 +468,14 @@ def get_upcoming_consultations():
             for record in result:
                 # Récupérer les informations du patient depuis MongoDB
 
-                doctor = db.doctors.find_one({'_id': ObjectId(record['doctor_mongo_id'])})
+                print(record['doctor_mongo_id'])
 
-                if doctor:
+                doctor = db.doctors.find_one({'user_id': record['doctor_mongo_id']})
+
+            print(doctor)
+
+
+            if doctor:
                     consultation_data = {
                         'consultation_id': record['consultation_id'],
                         'date': record['date'],
