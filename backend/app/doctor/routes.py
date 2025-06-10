@@ -241,51 +241,95 @@ def delete_doctor(user_id):
         if not doctor_data:
             return jsonify({"error": "Données du docteur non trouvées"}), 404
         
-        # Utiliser l'_id du document doctor car le SyncService utilise "id" dans Neo4j
-        doctor_neo4j_id = str(doctor_data['_id'])
+        # Préparer les IDs pour Neo4j
+        doctor_neo4j_id = str(doctor_data['_id'])  # Pour les nœuds avec propriété "id"
+        doctor_mongo_id = user_id  # Pour les nœuds avec propriété "mongo_id"
         
-        print(f"Tentative de suppression Neo4j avec id: {doctor_neo4j_id}")
+        print(f"Suppression Neo4j - ID principal: {doctor_neo4j_id}, Mongo ID: {doctor_mongo_id}")
         
         # Supprimer de Neo4j EN PREMIER
         try:
             with neo4j_driver.session() as session:
-                # Vérifier d'abord si le nœud existe avec la propriété "id"
-                check_result = session.run("""
+                # Vérifier et supprimer les nœuds Doctor avec propriété "id"
+                check_result_id = session.run("""
                     MATCH (d:Doctor {id: $doctor_id})
                     RETURN d.id as found_id, d.name as name
                 """, doctor_id=doctor_neo4j_id)
                 
-                found_record = check_result.single()
-                if found_record:
-                    print(f"Nœud trouvé: {found_record['found_id']} - {found_record['name']}")
+                found_record_id = check_result_id.single()
+                if found_record_id:
+                    print(f"Nœud trouvé avec 'id': {found_record_id['found_id']} - {found_record_id['name']}")
+                
+                # Vérifier et supprimer les nœuds Doctor avec propriété "mongo_id"
+                check_result_mongo = session.run("""
+                    MATCH (d:Doctor {mongo_id: $mongo_id})
+                    RETURN d.mongo_id as found_mongo_id, count(d) as count
+                """, mongo_id=doctor_mongo_id)
+                
+                found_record_mongo = check_result_mongo.single()
+                if found_record_mongo and found_record_mongo['count'] > 0:
+                    print(f"Nœud(s) trouvé(s) avec 'mongo_id': {found_record_mongo['found_mongo_id']} (count: {found_record_mongo['count']})")
+                
+                # Supprimer TOUS les nœuds Doctor liés à ce docteur
+                # 1. Supprimer les nœuds avec propriété "id"
+                delete_result_id = session.run("""
+                    MATCH (d:Doctor {id: $doctor_id})
+                    DETACH DELETE d
+                    RETURN count(d) as deleted_count
+                """, doctor_id=doctor_neo4j_id)
+                
+                # 2. Supprimer les nœuds avec propriété "mongo_id"
+                delete_result_mongo = session.run("""
+                    MATCH (d:Doctor {mongo_id: $mongo_id})
+                    DETACH DELETE d
+                    RETURN count(d) as deleted_count
+                """, mongo_id=doctor_mongo_id)
+                
+                deleted_count_id = delete_result_id.single()['deleted_count'] if delete_result_id.single() else 0
+                deleted_count_mongo = delete_result_mongo.single()['deleted_count'] if delete_result_mongo.single() else 0
+                
+                total_deleted = deleted_count_id + deleted_count_mongo
+                
+                print(f"Nœuds Doctor supprimés - avec 'id': {deleted_count_id}, avec 'mongo_id': {deleted_count_mongo}")
+                print(f"Total supprimé: {total_deleted}")
+                
+                # Vérification finale - s'assurer qu'aucun nœud Doctor n'existe encore
+                final_check = session.run("""
+                    MATCH (d:Doctor)
+                    WHERE d.id = $doctor_id OR d.mongo_id = $mongo_id
+                    RETURN count(d) as remaining_count
+                """, doctor_id=doctor_neo4j_id, mongo_id=doctor_mongo_id)
+                
+                remaining_count = final_check.single()['remaining_count'] if final_check.single() else 0
+                
+                if remaining_count > 0:
+                    print(f"ATTENTION: Il reste {remaining_count} nœud(s) Doctor non supprimé(s)!")
+                    # Optionnel: lister les nœuds restants pour debug
+                    remaining_nodes = session.run("""
+                        MATCH (d:Doctor)
+                        WHERE d.id = $doctor_id OR d.mongo_id = $mongo_id
+                        RETURN d.id, d.mongo_id, d.name
+                    """, doctor_id=doctor_neo4j_id, mongo_id=doctor_mongo_id)
                     
-                    # Supprimer le nœud avec DETACH DELETE pour supprimer aussi les relations
-                    delete_result = session.run("""
-                        MATCH (d:Doctor {id: $doctor_id})
-                        DETACH DELETE d
-                        RETURN count(d) as deleted_count
-                    """, doctor_id=doctor_neo4j_id)
+                    for node in remaining_nodes:
+                        print(f"Nœud restant: {dict(node)}")
                     
-                    delete_record = delete_result.single()
-                    deleted_count = delete_record['deleted_count'] if delete_record else 0
-                    print(f"Nœuds Doctor supprimés de Neo4j: {deleted_count}")
-                    
-                    if deleted_count == 0:
-                        print("ATTENTION: Aucun nœud n'a été supprimé!")
-                        return jsonify({"error": "Échec de la suppression dans Neo4j"}), 500
+                    return jsonify({"error": "Échec de la suppression complète dans Neo4j"}), 500
                 else:
-                    print(f"Aucun nœud trouvé avec id: {doctor_neo4j_id}")
-                    # Optionnel: lister tous les docteurs pour debug
-                    debug_result = session.run("MATCH (d:Doctor) RETURN d.id, d.name LIMIT 5")
-                    all_doctors = list(debug_result)
-                    print(f"Docteurs existants dans Neo4j: {all_doctors}")
-                    
-                    # Ne pas faire échouer si le nœud n'existe pas dans Neo4j
-                    print("Le nœud n'existe pas dans Neo4j, continuation de la suppression MongoDB")
+                    print("✅ Suppression Neo4j réussie - aucun nœud Doctor restant")
                 
         except Exception as neo4j_error:
             print(f"Erreur Neo4j lors de la suppression: {neo4j_error}")
             return jsonify({"error": f"Erreur lors de la suppression dans Neo4j: {str(neo4j_error)}"}), 500
+        
+        # Supprimer de MongoDB seulement après Neo4j
+        db.doctors.delete_one({'user_id': user_id})
+        db.users.delete_one({'_id': user._id})
+        
+        return jsonify({"message": "Docteur supprimé avec succès"}), 200
+        
+    except Exception as e:
+        return jsonify({"error": f"Une erreur est survenue lors de la suppression du docteur: {str(e)}"}), 500
         
         # Supprimer de MongoDB seulement après Neo4j
         db.doctors.delete_one({'user_id': user_id})
