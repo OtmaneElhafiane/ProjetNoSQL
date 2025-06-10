@@ -33,8 +33,9 @@ export interface Consultation {
   createdAt: string;
   updatedAt: string;
   patientName?: string;
-  doctorName?: string;
+  doctorName: string;
 }
+
 
 export interface ConsultationCreate {
   patient_id: string;
@@ -101,7 +102,7 @@ export class ConsultationService {
   }
 
   updateConsultation(id: string, consultationData: Partial<Consultation>): Observable<Consultation> {
-    return this.http.put<Consultation>(`${this.apiUrl}/${id}`, consultationData);
+    return this.http.put<Consultation>(`${this.apiUrl}${id}`, consultationData);
   }
 
   deleteConsultation(id: string): Observable<void> {
@@ -109,7 +110,7 @@ export class ConsultationService {
   }
 
   getPatientConsultations(patientId: string): Observable<Consultation[]> {
-    return this.http.get<Consultation[]>(`${this.apiUrl}/patient/${patientId}`);
+    return this.http.get<Consultation[]>(`${this.apiUrl}patient/${patientId}`);
   }
 
   getDoctorConsultations(doctorId: string): Observable<Consultation[]> {
@@ -154,4 +155,4 @@ export class ConsultationService {
       data
     });
   }
-} 
+}

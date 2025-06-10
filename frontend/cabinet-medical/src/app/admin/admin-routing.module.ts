@@ -20,7 +20,7 @@ import { ConsultationListComponent } from './components/consultation-list/consul
 const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
   { path: 'dashboard', component: AdminDashboardComponent },
-  
+
   // Doctor Routes
   { path: 'doctors/add', component: AddDoctorComponent },
   { path: 'doctors/edit/:id', component: EditDoctorComponent },

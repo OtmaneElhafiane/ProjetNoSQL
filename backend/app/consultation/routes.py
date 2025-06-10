@@ -350,3 +350,66 @@ def delete_consultation(consultation_id):
 
     # NO MONGODB DELETION NEEDED
     return jsonify({"message": "Consultation supprimée avec succès du graphe"}), 200
+
+
+@consultation_bp.route('/patient/<patient_mongo_id>', methods=['GET'])
+@jwt_required()
+@admin_required
+def get_consultation_history(patient_mongo_id):
+    """Récupérer l'historique de toutes les consultations du docteur via Neo4j"""
+    try:
+
+        # Requête Neo4j pour récupérer toutes les relations CONSULTED_BY
+        with neo4j_driver.session() as session:
+            result = session.run("""
+                MATCH (p:Patient)-[r:CONSULTED_BY]->(d:Doctor)
+                WHERE p.mongo_id = $patient_mongo_id
+                RETURN d.mongo_id as doctor_mongo_id, 
+                       r.consultation_id as consultation_id,
+                       r.date as date,
+                       r.motif as motif,
+                       r.diagnostic as diagnostic,
+                       r.traitement as traitement,
+                       r.notes as notes,
+                       r.status as status,
+                       r.created_at as created_at
+                ORDER BY r.date DESC
+            """, patient_mongo_id=patient_mongo_id)
+
+            print(result)
+
+            consultations_history = []
+
+            for record in result:
+                # Récupérer les informations du patient depuis MongoDB
+                doctor = db.doctors.find_one({'user_id': record['doctor_mongo_id']})
+
+                print(doctor)
+
+                if doctor:
+                    consultation_data = {
+                        'consultation_id': record['consultation_id'],
+                        'date': record['date'],
+                        'motif': record['motif'],
+                        'diagnostic': record['diagnostic'],
+                        'traitement': record['traitement'],
+                        'notes': record['notes'] or '',
+                        'status': record['status'] or 'pending',
+                        'created_at': record['created_at'],
+                        'doctor': {
+                            'id_doctor': str(doctor['_id']),
+                            'name': doctor['name'],
+                            'email': doctor['email'],
+                            'phone': doctor['phone'],
+                            'speciality': doctor['speciality'],
+                        }
+                    }
+                    consultations_history.append(consultation_data)
+
+            return jsonify({
+                'consultations': consultations_history,
+                'total': len(consultations_history)
+            }), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Erreur lors de la récupération de l\'historique: {str(e)}'}), 500

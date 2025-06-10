@@ -1,18 +1,527 @@
-<div class="container mt-4">
-  <div class="card">
-    <div class="card-header"><h3>Historique du Patient (ID: {{ patientId }})</h3></div>
+<div class="container">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Historique du Patient</h2>
+    <button class="btn btn-outline-secondary" (click)="goBack()">
+      <i class="fas fa-arrow-left me-2"></i>
+      Retour
+    </button>
+  </div>
+
+  <!-- Informations du patient -->
+  <div class="card mb-4" *ngIf="patientId">
     <div class="card-body">
-      <div *ngIf="isLoading" class="text-center py-5"><div class="spinner-border"></div></div>
-      <div *ngIf="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
-      <div *ngIf="!isLoading && consultations.length === 0" class="alert alert-info">Aucune consultation trouvée.</div>
-      
-      <ul *ngIf="!isLoading && consultations.length > 0" class="list-group">
-        <li *ngFor="let consultation of consultations" class="list-group-item">
-          <p><strong>Date:</strong> {{ consultation.date | date:'medium' }}</p>
-          <p><strong>Médecin:</strong> {{ consultation.doctorName }}</p>
-          <p><strong>Motif:</strong> {{ consultation.motif }}</p>
-        </li>
-      </ul>
+      <div class="d-flex align-items-center">
+        <div class="patient-avatar me-3">
+          <i class="fas fa-user"></i>
+        </div>
+        <div>
+          <h5 class="mb-1">Patient ID: {{ patientId }}</h5>
+          <p class="text-muted mb-0">Historique des consultations médicales</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtres et recherche -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label for="dateFrom" class="form-label">Date de début</label>
+          <input
+            type="date"
+            id="dateFrom"
+            class="form-control"
+            [(ngModel)]="dateFrom"
+            (change)="applyFilters()">
+        </div>
+        <div class="col-md-4">
+          <label for="dateTo" class="form-label">Date de fin</label>
+          <input
+            type="date"
+            id="dateTo"
+            class="form-control"
+            [(ngModel)]="dateTo"
+            (change)="applyFilters()">
+        </div>
+        <div class="col-md-4">
+          <label for="searchTerm" class="form-label">Rechercher</label>
+          <input
+            type="text"
+            id="searchTerm"
+            class="form-control"
+            placeholder="Médecin, motif..."
+            [(ngModel)]="searchTerm"
+            (input)="applyFilters()">
+        </div>
+      </div>
+      <div class="row mt-3">
+        <div class="col-12">
+          <button class="btn btn-outline-primary me-2" (click)="resetFilters()">
+            <i class="fas fa-refresh me-1"></i>
+            Réinitialiser
+          </button>
+          <small class="text-muted">
+            {{ filteredConsultations.length }} consultation(s) trouvée(s)
+          </small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="text-center mb-4">
+    <div class="spinner-border" role="status">
+      <span class="visually-hidden">Chargement...</span>
+    </div>
+    <p class="mt-2 text-muted">Chargement de l'historique...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="errorMessage" class="alert alert-danger d-flex align-items-center" role="alert">
+    <i class="fas fa-exclamation-triangle me-2"></i>
+    {{ errorMessage }}
+  </div>
+
+  <!-- Tableau des consultations -->
+  <div class="card" *ngIf="!isLoading">
+    <div class="card-header">
+      <div class="d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+          <i class="fas fa-history me-2"></i>
+          Consultations du patient
+        </h5>
+        <div class="d-flex align-items-center">
+          <span class="me-3">Consultations par page:</span>
+          <select
+            class="form-select form-select-sm"
+            style="width: auto;"
+            [(ngModel)]="itemsPerPage"
+            (change)="onItemsPerPageChange()">
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+          <tr>
+            <th style="cursor: pointer;" (click)="sortBy('date')">
+              Date
+              <i class="fas fa-sort ms-1"
+                 [class.fa-sort-up]="sortField === 'date' && sortDirection === 'asc'"
+                 [class.fa-sort-down]="sortField === 'date' && sortDirection === 'desc'"></i>
+            </th>
+            <th style="cursor: pointer;" (click)="sortBy('doctorName')">
+              Médecin
+              <i class="fas fa-sort ms-1"
+                 [class.fa-sort-up]="sortField === 'doctorName' && sortDirection === 'asc'"
+                 [class.fa-sort-down]="sortField === 'doctorName' && sortDirection === 'desc'"></i>
+            </th>
+            <th>Motif</th>
+            <th>Durée</th>
+            <th>Actions</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr *ngFor="let consultation of paginatedConsultations">
+            <td>
+              <div class="d-flex align-items-center">
+                <div class="date-badge me-2">
+                  <div class="day">{{ consultation.date | date:'dd' }}</div>
+                  <div class="month">{{ consultation.date | date:'MMM' }}</div>
+                </div>
+                <div>
+                  <div class="fw-semibold">{{ consultation.date | date:'dd/MM/yyyy' }}</div>
+                  <small class="text-muted">{{ consultation.date | date:'HH:mm' }}</small>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="d-flex align-items-center">
+                <div class="doctor-avatar me-2">
+                  <i class="fas fa-user-md"></i>
+                </div>
+
+              </div>
+            </td>
+            <td>
+              <div class="consultation-motif">
+                {{ consultation.motif }}
+              </div>
+            </td>
+
+            <td>
+              <div class="btn-group" role="group">
+                <button
+                  class="btn btn-sm btn-outline-info"
+                  (click)="showConsultationDetails(consultation)"
+                  title="Voir les détails">
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button
+                  class="btn btn-sm btn-outline-secondary"
+                  (click)="printConsultation(consultation)"
+                  title="Imprimer">
+                  <i class="fas fa-print"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="paginatedConsultations.length === 0">
+            <td colspan="5" class="text-center text-muted py-5">
+              <i class="fas fa-calendar-times fa-3x d-block mb-3"></i>
+              <h5>Aucune consultation trouvée</h5>
+              <p class="mb-0">
+                <span *ngIf="consultations.length === 0">Ce patient n'a pas encore de consultations enregistrées.</span>
+                <span *ngIf="consultations.length > 0">Aucune consultation ne correspond à vos critères de recherche.</span>
+              </p>
+            </td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="card-footer" *ngIf="totalPages > 1">
+      <nav aria-label="Navigation des pages">
+        <ul class="pagination justify-content-center mb-0">
+          <li class="page-item" [class.disabled]="currentPage === 1">
+            <button class="page-link" (click)="goToPage(1)" [disabled]="currentPage === 1">
+              <i class="fas fa-angle-double-left"></i>
+            </button>
+          </li>
+          <li class="page-item" [class.disabled]="currentPage === 1">
+            <button class="page-link" (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 1">
+              <i class="fas fa-angle-left"></i>
+            </button>
+          </li>
+
+          <li class="page-item"
+              *ngFor="let page of getVisiblePages()"
+              [class.active]="page === currentPage">
+            <button class="page-link" (click)="goToPage(page)">
+              {{ page }}
+            </button>
+          </li>
+
+          <li class="page-item" [class.disabled]="currentPage === totalPages">
+            <button class="page-link" (click)="goToPage(currentPage + 1)" [disabled]="currentPage === totalPages">
+              <i class="fas fa-angle-right"></i>
+            </button>
+          </li>
+          <li class="page-item" [class.disabled]="currentPage === totalPages">
+            <button class="page-link" (click)="goToPage(totalPages)" [disabled]="currentPage === totalPages">
+              <i class="fas fa-angle-double-right"></i>
+            </button>
+          </li>
+        </ul>
+      </nav>
+      <div class="text-center mt-2">
+        <small class="text-muted">
+          Page {{ currentPage }} sur {{ totalPages }}
+          ({{ startIndex + 1 }} - {{ endIndex }} sur {{ filteredConsultations.length }} consultations)
+        </small>
+      </div>
     </div>
   </div>
 </div>
+
+<!-- Modal pour les détails de la consultation -->
+<div class="modal fade" id="consultationModal" tabindex="-1" aria-labelledby="consultationModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="consultationModalLabel">
+          <i class="fas fa-file-medical me-2"></i>
+          Détails de la consultation
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" *ngIf="selectedConsultation">
+        <div class="row">
+          <!-- Informations générales -->
+          <div class="col-md-6 mb-4">
+            <div class="info-section">
+              <h6 class="section-title">
+                <i class="fas fa-info-circle me-2"></i>
+                Informations générales
+              </h6>
+              <div class="info-item">
+                <strong>Date :</strong>
+                <span>{{ selectedConsultation.date | date:'dd/MM/yyyy à HH:mm' }}</span>
+              </div>
+              <div class="info-item">
+                <strong>Motif :</strong>
+                <span>{{ selectedConsultation.motif }}</span>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Informations du médecin -->
+          <div class="col-md-6 mb-4">
+            <div class="info-section">
+              <h6 class="section-title">
+                <i class="fas fa-user-md me-2"></i>
+                Médecin traitant
+              </h6>
+              <div class="info-item">
+                <strong>Nom :</strong>
+                <span>Dr. {{ selectedConsultation.doctorName }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes additionnelles -->
+        <div class="row" *ngIf="selectedConsultation.notes">
+          <div class="col-12 mb-4">
+            <div class="info-section">
+              <h6 class="section-title">
+                <i class="fas fa-sticky-note me-2"></i>
+                Notes de consultation
+              </h6>
+              <div class="notes-content">
+                {{ selectedConsultation.notes }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Fermer
+        </button>
+        <button type="button" class="btn btn-primary" (click)="printConsultation(selectedConsultation!)">
+          <i class="fas fa-print me-1"></i>
+          Imprimer
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .card {
+    border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-radius: 12px;
+  }
+
+  .card-header {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    border-radius: 12px 12px 0 0 !important;
+    border-bottom: none;
+  }
+
+  .patient-avatar {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #28a745, #20c997);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+  }
+
+  .doctor-avatar {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.2rem;
+  }
+
+  .date-badge {
+    background: linear-gradient(135deg, #6f42c1, #e83e8c);
+    color: white;
+    border-radius: 8px;
+    padding: 8px;
+    text-align: center;
+    min-width: 50px;
+  }
+
+  .date-badge .day {
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .date-badge .month {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+
+  .table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+    background: #f8f9fa;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .table td {
+    vertical-align: middle;
+    border-color: #e9ecef;
+  }
+
+  .table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+  }
+
+  .consultation-motif {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .badge {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 6px;
+  }
+
+  .btn-group .btn {
+    margin-right: 0;
+  }
+
+  .pagination .page-link {
+    border: 1px solid #dee2e6;
+    color: #007bff;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .pagination .page-item.active .page-link {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    border-color: #007bff;
+  }
+
+  .pagination .page-link:hover {
+    background-color: #e9ecef;
+    border-color: #dee2e6;
+  }
+
+  .spinner-border {
+    color: #007bff;
+  }
+
+  /* Styles pour le modal */
+  .info-section {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    border-left: 4px solid #007bff;
+    height: 100%;
+  }
+
+  .section-title {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e9ecef;
+  }
+
+  .info-item {
+    margin-bottom: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .info-item strong {
+    min-width: 100px;
+    color: #495057;
+    margin-right: 10px;
+  }
+
+  .info-item span {
+    flex: 1;
+  }
+
+  .notes-content {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+
+  .modal-footer {
+    border-top: 1px solid #e9ecef;
+    background: #f8f9fa;
+  }
+
+  .section-title i {
+    color: #007bff;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .info-item {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .info-item strong {
+      min-width: auto;
+      margin-bottom: 5px;
+    }
+
+    .table-responsive {
+      font-size: 0.9rem;
+    }
+
+    .consultation-motif {
+      max-width: 150px;
+    }
+
+    .doctor-avatar, .patient-avatar {
+      width: 35px;
+      height: 35px;
+      font-size: 1rem;
+    }
+
+    .date-badge {
+      min-width: 45px;
+      padding: 6px;
+    }
+  }
+
+  /* Animations */
+  .card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  }
+
+  .btn {
+    transition: all 0.2s ease;
+  }
+
+  .table tbody tr {
+    transition: background-color 0.2s ease;
+  }
+</style>

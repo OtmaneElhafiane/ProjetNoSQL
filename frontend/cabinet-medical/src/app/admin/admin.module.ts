@@ -2,7 +2,7 @@
 
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule } from '@angular/forms'; 
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 
 // --- 1. IMPORT YOUR NEW ROUTING MODULE ---
 import { AdminRoutingModule } from './admin-routing.module';
@@ -38,8 +38,8 @@ import { ConsultationListComponent } from './components/consultation-list/consul
   imports: [
     CommonModule,
     AdminRoutingModule, // <-- Add it here
-    FormsModule,        
-    ReactiveFormsModule 
+    FormsModule,
+    ReactiveFormsModule
   ]
 })
 export class AdminModule { }
