@@ -8,9 +8,9 @@ load_dotenv()
 
 class Config:
     # MongoDB Configuration
-    MONGODB_USERNAME = os.getenv("MONGODB_USERNAME", "randomstuffformehdi")
-    MONGODB_PASSWORD = os.getenv("MONGODB_PASSWORD", "root")
-    MONGODB_URI = f"mongodb+srv://{MONGODB_USERNAME}:{quote_plus(MONGODB_PASSWORD)}@cluster0.kkryhtz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+    MONGODB_USERNAME = os.getenv("MONGODB_USERNAME", "cabinet_medical")
+    MONGODB_PASSWORD = os.getenv("MONGODB_PASSWORD", "admin123")
+    MONGODB_URI = f"mongodb+srv://{MONGODB_USERNAME}:{quote_plus(MONGODB_PASSWORD)}@cluster0.4rpd6ts.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
     # Neo4j AuraDB Configuration
     NEO4J_URI = os.getenv("NEO4J_URI", "neo4j+s://236ac439.databases.neo4j.io")
